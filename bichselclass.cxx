@@ -9,6 +9,7 @@
 #include <numeric>
 #include "TRandom3.h"
 #include "TH1.h"
+#include "TH2.h"
 #include "TCanvas.h"
 #include "TString.h"
 #include "TGraph.h"
@@ -204,24 +205,6 @@ double Bichsel::GetMCstep(){
   return dx;
 }
 
-/*
-  void Bichsel::Truncate(double factor){
-  //factor is fraction  you keep. i.e. factor=.7 means we keep bottom 70% throw away top 30%
-  int elem2trunc = round((1-factor)*elossarray.size());
-  cout << " elem to trunc is "<<elem2trunc<<endl;
-  for(int i=0;i<elem2trunc;++i) elossarray.pop_back();
-
-  return;
-  }
-
-  double Bichsel::GetMean(){
-  double sum=0.;
-  for(int i=0;i<elossarray.size();++i) sum+=elossarray.at(i);
-
-  return sum/elossarray.size();
-  }
-*/
-
 class Track : public Bichsel{
   double t_length,x_seg,t_factor, t_mass, t_momentum, bgamma;
   std::vector<double>c_array;//array for truncated mean distribution
@@ -234,15 +217,18 @@ public:
   TH1D* Drawfdist(int,double);
   TH1D* DrawCdist(double);
 
+  TH2D* GraphMomRange(int,int,double,double);//graph a momentum range
+
   void Getfarray();//f(E) is the probability distribution for an energy loss E; sample from this and store in f_array 
   void SortArray(){sort(f_array.begin(), f_array.end(), wayToSort);}
   void Printfarray(){for(int i=0;i<f_array.size();++i) cout << f_array.at(i) << endl;}
-  void SetMomentum(double mom){t_momentum=mom; Setbg((mom/sqrt(mom*mom + t_mass*t_mass))*(sqrt(mom*mom + t_mass*t_mass)/t_mass));}
+  void SetMomentum(double);
   void SetLength(double length){t_length = length;}
   void SetTruncFactor(double factor){t_factor = factor;}
   void Truncate();
   void GetC();//calculate C for a given track
 
+  double GetMomentum(){return t_momentum;}
   double GetCavg();
   double GetCsigma();
   double GetLength(){return t_length;}
@@ -252,6 +238,14 @@ public:
   double GetSigma(TH1D*&dist){return GetFWHM(dist)/2.355;}
 };
 
+
+void Track::SetMomentum(double mom){
+  t_momentum=mom;
+  bgamma=(mom/sqrt(mom*mom + t_mass*t_mass))*(sqrt(mom*mom + t_mass*t_mass)/t_mass);
+  m_path = GetM0(bgamma);
+  
+    return;
+}
 
 void Track::Getfarray(){
   //probably should check if t_length is integer of x_seg
@@ -282,11 +276,34 @@ void Track::Getfarray(){
   return ;
 }
 
+
+TH2D* Track::GraphMomRange(int mc_tracks,int steps,double mom_min, double mom_max){
+  double mom_step = (mom_max - mom_min)/steps;
+  TString histname = Form("tracklength %d P10 gas",t_length);
+  TH2D *pid = new TH2D("pid",histname,5000,0,5000,1000,0,20);
+  
+  for(int j=0;j<=steps;++j){
+    for(int i=0;i<mc_tracks;++i){
+      SetMomentum(mom_min+mom_step*j);
+      Getfarray();
+      SortArray();
+      Truncate();
+      GetC();
+      for(int k=0;k<c_array.size();++k) pid->Fill(t_momentum,c_array.at(k));
+      f_array.clear();
+      c_array.clear();
+    }
+  }
+ 
+ return pid;
+}
+
+
+
 TH1D* Track::Drawfdist(int mc_events,double max_eloss){
   TString histname = Form("test");
   TH1D *dist = new TH1D("f_dist",histname,1000,0,max_eloss);
   for(int i=0;i<mc_events;++i){
-    if(i%1000==0)cout<<i<<endl;
     Getfarray();
     SortArray();
     Truncate();
@@ -342,7 +359,6 @@ double Track::GetCsigma(){
   double sigma =0.;
   for(int i=0;i<c_array.size();++i){
     sigma += (c_array.at(i) - avg)*(c_array.at(i) - avg)/c_array.size();
-    //    cout << "c is "<< c_array.at(i)<<endl;
   }
 
   return sqrt(sigma);
@@ -367,29 +383,38 @@ double Track::GetFWHM(TH1D*&dist){
 //later do for different z
 
 int main(){
+  int mc_steps=1e2;
+
+  double amu=938;     //MeV/c^2
   double length = 40; // [cm] length of track
   double segment = 2; // [cm] segment analyzed
-  double factor = .6; // truncation factor
-  
-  Track pion{140,56,length,segment,factor};
+  double factor = .7; // truncation factor
+
+  Track pion{140,100,length,segment,factor};
+  Track p{amu,100,length,segment,factor};
+  Track d{amu*2,100,length,segment,factor};
+  Track t{amu*3,100,length,segment,factor};
 
   pion.SetInvXSec("P10M0invw_31623.inv");
-  cout << "Bgamma is " << pion.Getbg() << endl;
-  cout << "Mean free path " << pion.GetMpath() <<endl;
-  //  pion.SetMomentum(200);
-  cout << "Bgamma is " << pion.Getbg() << endl;
-  cout << "Mean free path " << pion.GetMpath() <<endl;
-  //       t.GetElossArray(1e6);
-  //What i need to do next
-  /* 
-I need to make sure the truncation works
-the Draw fDist is not C dist
-The C distribution is right in units
-make a <C> function
-verify the distribution f(C) works in han's paper
-figure out how to make a graph of Sigma vs momentum for particle type
+  p.SetInvXSec("P10M0invw_31623.inv");
+  d.SetInvXSec("P10M0invw_31623.inv");
+  t.SetInvXSec("P10M0invw_31623.inv");
 
-  */
+  
+  // cout << "Bgamma is " << pion.Getbg() << endl;
+  //  cout << "Mean free path " << pion.GetMpath() <<endl;
+
+    TH2D *pi_hist;
+    TH2D *p_hist;
+    TH2D *d_hist;
+    TH2D *t_hist;
+
+    pi_hist = pion.GraphMomRange(mc_steps,100,50,1000);
+    p_hist =     p.GraphMomRange(mc_steps,150,300,2000);
+    d_hist =     d.GraphMomRange(mc_steps,150,600,2500);
+    t_hist =     t.GraphMomRange(mc_steps,150,600,2500);
+			     
+  /*
   TH1D *h1;
   //   h1 = b.DrawElossDist(100);
   h1 = pion.Drawfdist(1e3,20);
@@ -397,12 +422,15 @@ figure out how to make a graph of Sigma vs momentum for particle type
   cout << "Mean: " << pion.GetCavg() <<" Sigma: " << pion.GetCsigma()<<endl;
   //        h1 = t.DrawMultColl(2,100);
 
+  */
   TCanvas *c1 = new TCanvas(1);
-  //  h1->GetXaxis()->SetRangeUser(9,100);
-  
-  h1->Draw();
-  //  c1->SetLogx();
-  c1->SaveAs("test.jpg");
+    t_hist->Add(pi_hist);
+    t_hist->Add(p_hist);
+    t_hist->Add(d_hist);
+
+  t_hist->Draw("colz");
+			 //  c1->SetLogy();
+  c1->SaveAs("pid_sum.jpg");
 
   return 0;
 }
