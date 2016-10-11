@@ -20,16 +20,17 @@ bool wayToSort(double i, double j) { return i < j; }
 
 class Bichsel {
 protected:
-  double m_path;//mean free path collisions/cm
+  double bgamma,m_path;//mean free path collisions/cm
   TRandom3 ran;
-  std::vector<double> elosstable;
+  std::vector<double> tablex; //array to store x values (rand num 0-1) from Cumulative dist of eloss
+  std::vector<double> elosstable; //array to store values of cumulative dist
   std::vector<double> elossarray; //array to store energy loss simulations
   std::vector<double> fvpx={0.316,0.398,0.501,0.631,0.794,1,1.259,1.585,1.995,2.512,3.162,3.981,5.012,6.31,7.943,10,12.589,15.849,19.953,25.119,31.623,39.811,50.119,63.096,79.433,100,125.893,158.489,199.526,251.189,316.228,398.107,501.187,630.957,794.328,1000};
   std::vector<double> fvpy={211.0726,146.5664,103.9873,76.0672,57.9161,46.2566,38.8999,34.3884,31.7545,30.357,29.7722,29.7206,30.018,30.543,31.2156,31.9825,32.8078,33.6658,34.5369,35.4067,36.2903,37.2469,38.055,38.6576,39.0968,39.4162,39.6515,39.8283,39.9648,40.0725,40.159,40.2288,40.285,40.3296,40.3634,40.3885}; 
   tk::spline fvp;
-  //  fvp.set_points(fvpx,fvpy);  
+  tk::spline table;//eloss taable for spline
 public:
-  Bichsel(double path) : m_path(path), ran(0) {}
+  Bichsel(double bg) : bgamma(bg), ran(0){fvp.set_points(fvpx,fvpy); m_path = GetM0(bg);}
 
   void SetInvXSec (const string&);
   void PrintInvTable();
@@ -45,20 +46,23 @@ public:
 
   double GetMean();
   double GetEloss();
+  double Getbg(){return bgamma;}
+  double GetMpath(){return m_path;}
   double InterTableLin(double);
+  double InterTableSpline(double);
   double GetMCstep();
   double GetM0(double);
 };
 
-double Bichsel::InterTableLin(double ran){
+double Bichsel::InterTableLin(double r){
   double y = -999999;//interpolated y value from table
-  int rd_up=floor(ran);//round up value
-  int rd_down=ceil(ran);//round down and down integers for 
+  int rd_up=floor(r);//round up value
+  int rd_down=ceil(r);//round down and down integers for 
 
   if(rd_up!=rd_down){
     double m=0.;//slope
     m=(elosstable.at(rd_up)-elosstable.at(rd_down))/(rd_up-rd_down);
-    y=m*(ran-rd_down)+elosstable.at(rd_down);
+    y=m*(r-rd_down)+elosstable.at(rd_down);
   }
   //elosstable starts from 0 therefore size=rd_up (max) +1
   //error for array out of bounds
@@ -69,23 +73,41 @@ double Bichsel::InterTableLin(double ran){
   return y;
 }
 
+double Bichsel::InterTableSpline(double r){
+  if(r<0){
+    cout << "ERROR rand num is less than 0";
+    cout << "Please check random number code limits" << endl;
+    //DO I NEED TO EXIT!!!???
+  }
+  else if(r>1){
+    cout << "Random number is " << r <<endl;
+    cout << "ERROR rand is greater than 1 which is max table value" << endl;
+    cout << "Please check random number code limits" << endl;
+    //EXIT HERE TOO!!!!
+  }
+
+  return table(r);
+}
+
 void Bichsel::SetInvXSec (const string& filename) {
   ifstream file (filename.c_str());
-  double d_value=0;
-  string rnd_num;
+  double d_value=0,d_ran=0;
+  //  string rnd_num;
   string index,line;
 
   if (file.is_open()){
-    elosstable.push_back(0);// first value starts at .0001 not 0
+    //    elosstable.push_back(0);// first value starts at .0001 not 0
     while(getline (file,line) ){
       
       istringstream in(line);
-      in>>rnd_num;
+      in>>d_ran;
       in>>d_value;
       elosstable.push_back(d_value);
+      tablex.push_back(d_ran);
     }
   }
   else cout << "Unable to open Inverted Cross seciton file with SetInvXSec" << endl;
+  table.set_points(tablex,elosstable);
 
   return;
 }
@@ -107,7 +129,7 @@ double Bichsel::GetM0(double x){
     cout << "setting Beta*gamma to a reasonable maximum 5000" << endl;
     x=5000;
   }
-  fvp.set_points(fvpx,fvpy);
+  //    fvp.set_points(fvpx,fvpy);
 
   return fvp(x);
 }
@@ -115,8 +137,10 @@ double Bichsel::GetM0(double x){
 double Bichsel::GetEloss(){
   double random=0;
   double r_eloss=-99;
-  random = ran.Uniform(elosstable.size()-1);
-  r_eloss = InterTableLin(random);
+  //    random = ran.Uniform(elosstable.size()-1);
+  //    r_eloss = InterTableLin(random);
+  random = ran.Rndm();
+  r_eloss = InterTableSpline(random);
   
   return r_eloss;
 }
@@ -127,8 +151,10 @@ void Bichsel::GetElossArray(int mc_events){
   double random=0;
   ran.RndmArray(mc_events,ran_array);
   for(int i=0;i<mc_events;i++){
-    random = ran.Uniform(elosstable.size()-1);//uniform dist between elosstable range
-    elossarray.push_back(InterTableLin(random));
+    //    random = ran.Uniform(elosstable.size()-1);//uniform dist between elosstable range
+    //    elossarray.push_back(InterTableLin(random));
+    random = ran.Rndm();
+    elossarray.push_back(InterTableSpline(random));
   }
 
   return;
@@ -174,43 +200,43 @@ double Bichsel::GetMCstep(){
 }
 
 /*
-void Bichsel::Truncate(double factor){
+  void Bichsel::Truncate(double factor){
   //factor is fraction  you keep. i.e. factor=.7 means we keep bottom 70% throw away top 30%
   int elem2trunc = round((1-factor)*elossarray.size());
   cout << " elem to trunc is "<<elem2trunc<<endl;
   for(int i=0;i<elem2trunc;++i) elossarray.pop_back();
 
   return;
-}
+  }
 
-double Bichsel::GetMean(){
+  double Bichsel::GetMean(){
   double sum=0.;
   for(int i=0;i<elossarray.size();++i) sum+=elossarray.at(i);
 
   return sum/elossarray.size();
-}
+  }
 */
 
 class Track : public Bichsel{
-  double t_length,x_seg,t_factor;
+  double t_length,x_seg,t_factor, t_mass, t_momentum, bgamma;
   std::vector<double>c_array;//array for truncated mean distribution
   std::vector<double>f_array;//array for f(E) distribution
   
 public:
-  Track(double path,double length,double seg, double factor) :  Bichsel(path),t_length(length),x_seg(seg), t_factor(factor){}
-
+  //  Track(double path,double length,double seg, double factor) :  Bichsel(path),t_length(length),x_seg(seg), t_factor(factor){}
+  Track(double mass, double mom, double length,double seg, double factor) : t_mass(mass), t_momentum(mom), t_length(length),x_seg(seg), t_factor(factor),Bichsel((mom/sqrt(mom*mom + mass*mass))*(sqrt(mom*mom + mass*mass)/mass)){}
+  
   void Getfarray();//f(E) is the probability distribution for an energy loss E; sample from this and store in f_array 
   void SortArray(){sort(f_array.begin(), f_array.end(), wayToSort);}
   void Printfarray(){for(int i=0;i<f_array.size();++i) cout << f_array.at(i) << endl;}
   TH1D* Drawfdist(int,double);
   void GetCdist();
-  void SetMFree(double path){m_path = path;}
+  void SetMFree(double bg){bgamma = bg;}
   void SetLength(double length){t_length = length;}
   void SetTruncFactor(double factor){t_factor = factor;}
   void Truncate();
 
   //double GetC()DONT FORGET C = dE/dx !!!! check formula//return 
-  double GetMFree(){return m_path;}
   double GetLength(){return t_length;}
   double GetTruncFactor(){return t_factor;}
   double GetMean(TH1D *&dist){return dist->GetMean();}
@@ -244,7 +270,7 @@ void Track::Getfarray(){
   }
 
 
-return ;
+  return ;
 }
 
 TH1D* Track::Drawfdist(int mc_events,double max_eloss){
@@ -253,17 +279,17 @@ TH1D* Track::Drawfdist(int mc_events,double max_eloss){
   for(int i=0;i<mc_events;++i){
     Getfarray();
     //        Printfarray();
-	//     cout<<"after sort"<<endl;
+    //     cout<<"after sort"<<endl;
     SortArray();
     // Printfarray();
     Truncate();
     //  Printfarray();
     //units of energy loss are in eV; which add up for multiple collisions in a segment
     //for 1cm segments the better unit is keV
-for(int j=0;j<f_array.size();++j) dist->Fill(f_array.at(j)/1000);
+    for(int j=0;j<f_array.size();++j) dist->Fill(f_array.at(j)/1000);
     f_array.clear();
     //       Printfarray();
-       //       cout<<"end =============="<<endl;
+    //       cout<<"end =============="<<endl;
     //    cout<<"f array size"<<f_array.size();
   }
   dist->Scale(1./dist->GetEntries());
@@ -290,7 +316,7 @@ double Track::GetFWHM(TH1D*&dist){
   u_bin = dist->FindLastBinAbove(value/2);
   fwhm = dist->GetBinCenter(u_bin) - dist->GetBinCenter(l_bin);
   
- return fwhm;
+  return fwhm;
 }
 
 //make a class called particle
@@ -299,39 +325,27 @@ double Track::GetFWHM(TH1D*&dist){
 //later do for different z
 
 int main(){
-  /*  std::vector<double> fvpx={0.316,0.398,0.501,0.631,0.794,1,1.259,1.585,1.995,2.512,3.162,3.981,5.012,6.31,7.943,10,12.589,15.849,19.953,25.119,31.623,39.811,50.119,63.096,79.433,100,125.893,158.489,199.526,251.189,316.228,398.107,501.187,630.957,794.328,1000};
-    std::vector<double> fvpy={211.0726,146.5664,103.9873,76.0672,57.9161,46.2566,38.8999,34.3884,31.7545,30.357,29.7722,29.7206,30.018,30.543,31.2156,31.9825,32.8078,33.6658,34.5369,35.4067,36.2903,37.2469,38.055,38.6576,39.0968,39.4162,39.6515,39.8283,39.9648,40.0725,40.159,40.2288,40.285,40.3296,40.3634,40.3885};
-    tk::spline fvp;
-
-  fvp.set_points(fvpx,fvpy);
-  cout<<fvp(.38)<<endl;
-  */
-  Track t{40,10,2,.7};
-  t.SetInvXSec("P10M0invw_31623.inv");
+  double length = 100; // [cm] length of track
+  double segment = 2; // [cm] segment analyzed
+  double factor = .7; // truncation factor
   
+  Track pion{140,50,length,segment,factor};
+  pion.SetInvXSec("P10M0invw_31623.inv");
+  cout << "Bgamma is " << pion.Getbg() << endl;
+  cout << "Mean free path " << pion.GetMpath() <<endl;
   //       t.GetElossArray(1e6);
-  //  Bichsel b(40.);
-  //  b.SetInvXSec("P10M0invw_31623.inv");
-  //  b.GetElossArray(1e6);
-  //  std::vector<double> *x,*y;
-   int steps =1e5;
-    TGraph h1(steps);
-    double scale=(5000-.2)/steps;
-  for(int i=0;i<steps;++i){
-    double xi = .2+scale*i;
-    h1.SetPoint(i,xi,t.GetM0(xi));
-  }
-  /*    TH1D *h1;
-    // h1 = b.DrawElossDist(100);
-    //    h1 = t.Drawfdist(1e5,20);
-    //    cout<<t.GetFWHM(h1)<<endl;
-//  h1 = b.DrawMultColl(2,100);
-*/
+
+  TH1D *h1;
+  //   h1 = b.DrawElossDist(100);
+  //    h1 = t.Drawfdist(1e5,20);
+  //    cout<<t.GetFWHM(h1)<<endl;
+  //        h1 = t.DrawMultColl(2,100);
+
   TCanvas *c1 = new TCanvas(1);
   //  h1->GetXaxis()->SetRangeUser(9,100);
-
-  h1.Draw();
-    c1->SetLogx();
+  
+  //  h1->Draw();
+  //  c1->SetLogx();
   c1->SaveAs("test.jpg");
 
   return 0;
