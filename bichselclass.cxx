@@ -25,6 +25,10 @@ protected:
   std::vector<double> tablex; //array to store x values (rand num 0-1) from Cumulative dist of eloss
   std::vector<double> elosstable; //array to store values of cumulative dist
   std::vector<double> elossarray; //array to store energy loss simulations
+
+  //The arrays below come from Hans Bichsel's table ??? for P10 gas
+  // fvpx represents the beta gamma values in this table for FVP theory
+  // fvpy represents the M0 values [collisions/cm] for FVP theory
   std::vector<double> fvpx={0.316,0.398,0.501,0.631,0.794,1,1.259,1.585,1.995,2.512,3.162,3.981,5.012,6.31,7.943,10,12.589,15.849,19.953,25.119,31.623,39.811,50.119,63.096,79.433,100,125.893,158.489,199.526,251.189,316.228,398.107,501.187,630.957,794.328,1000};
   std::vector<double> fvpy={211.0726,146.5664,103.9873,76.0672,57.9161,46.2566,38.8999,34.3884,31.7545,30.357,29.7722,29.7206,30.018,30.543,31.2156,31.9825,32.8078,33.6658,34.5369,35.4067,36.2903,37.2469,38.055,38.6576,39.0968,39.4162,39.6515,39.8283,39.9648,40.0725,40.159,40.2288,40.285,40.3296,40.3634,40.3885}; 
   tk::spline fvp;
@@ -36,6 +40,7 @@ public:
   void PrintInvTable();
   void GetElossArray(int);
   void SetArrayElem(double value){elossarray.push_back(value);}
+  void Setbg(double bg){bgamma = bg;}
   void PrintElossArray();
   void ClearArray(){elossarray.clear();}
   //  void SortArray(){sort(elossarray.begin(), elossarray.end(), wayToSort);}
@@ -226,21 +231,25 @@ public:
   //  Track(double path,double length,double seg, double factor) :  Bichsel(path),t_length(length),x_seg(seg), t_factor(factor){}
   Track(double mass, double mom, double length,double seg, double factor) : t_mass(mass), t_momentum(mom), t_length(length),x_seg(seg), t_factor(factor),Bichsel((mom/sqrt(mom*mom + mass*mass))*(sqrt(mom*mom + mass*mass)/mass)){}
   
+  TH1D* Drawfdist(int,double);
+  TH1D* DrawCdist(double);
+
   void Getfarray();//f(E) is the probability distribution for an energy loss E; sample from this and store in f_array 
   void SortArray(){sort(f_array.begin(), f_array.end(), wayToSort);}
   void Printfarray(){for(int i=0;i<f_array.size();++i) cout << f_array.at(i) << endl;}
-  TH1D* Drawfdist(int,double);
-  void GetCdist();
-  void SetMFree(double bg){bgamma = bg;}
+  void SetMomentum(double mom){t_momentum=mom; Setbg((mom/sqrt(mom*mom + t_mass*t_mass))*(sqrt(mom*mom + t_mass*t_mass)/t_mass));}
   void SetLength(double length){t_length = length;}
   void SetTruncFactor(double factor){t_factor = factor;}
   void Truncate();
+  void GetC();//calculate C for a given track
 
-  //double GetC()DONT FORGET C = dE/dx !!!! check formula//return 
+  double GetCavg();
+  double GetCsigma();
   double GetLength(){return t_length;}
   double GetTruncFactor(){return t_factor;}
   double GetMean(TH1D *&dist){return dist->GetMean();}
   double GetFWHM(TH1D*&);
+  double GetSigma(TH1D*&dist){return GetFWHM(dist)/2.355;}
 };
 
 
@@ -260,7 +269,7 @@ void Track::Getfarray(){
     if(seg_dist>=x_seg){
       //here we check if the next step dx, above, put us over our desired analyzed segment size
       seg_dist = seg_dist-x_seg;//remainder dx in next segment analyzed
-      f_array.push_back(eloss);
+      f_array.push_back(eloss/x_seg);
       eloss = GetEloss();//get the  energyloss in the next segment analyzed with current dx
       //	cout<<" dist is greater than seg "<<endl;
     }
@@ -277,22 +286,25 @@ TH1D* Track::Drawfdist(int mc_events,double max_eloss){
   TString histname = Form("test");
   TH1D *dist = new TH1D("f_dist",histname,1000,0,max_eloss);
   for(int i=0;i<mc_events;++i){
+    if(i%1000==0)cout<<i<<endl;
     Getfarray();
-    //        Printfarray();
-    //     cout<<"after sort"<<endl;
     SortArray();
-    // Printfarray();
     Truncate();
-    //  Printfarray();
-    //units of energy loss are in eV; which add up for multiple collisions in a segment
-    //for 1cm segments the better unit is keV
+    GetC();
+    //units of energy loss are in eV/cm; which add up for multiple collisions in a segment
+    //the better unit is keV/cm
     for(int j=0;j<f_array.size();++j) dist->Fill(f_array.at(j)/1000);
     f_array.clear();
-    //       Printfarray();
-    //       cout<<"end =============="<<endl;
-    //    cout<<"f array size"<<f_array.size();
   }
   dist->Scale(1./dist->GetEntries());
+
+  return dist;
+}
+
+TH1D * Track::DrawCdist(double max_eloss){
+  TString histname = Form("test");
+  TH1D *dist = new TH1D("c_dist",histname,1000,0,max_eloss);
+  for(int i = 0;i<c_array.size();++i) dist->Fill(c_array.at(i));
 
   return dist;
 }
@@ -304,6 +316,36 @@ void Track::Truncate(){
   for(int i=0;i<elem2trunc;++i) f_array.pop_back();
 
   return;
+}
+
+void Track::GetC(){
+  double sum=0.;
+  for(int i=0;i<f_array.size();++i){
+    sum += f_array.at(i)/1000;//scale to [keV/cm] from [eV/cm]
+  }
+  c_array.push_back(sum/f_array.size());
+
+  return;
+}
+
+double Track::GetCavg(){
+  double sum = 0.;
+  for(int i=0;i<c_array.size();++i){
+    sum += c_array.at(i);
+  }
+  
+  return (sum/c_array.size());
+}
+
+double Track::GetCsigma(){
+  double avg = GetCavg(); //<C> 
+  double sigma =0.;
+  for(int i=0;i<c_array.size();++i){
+    sigma += (c_array.at(i) - avg)*(c_array.at(i) - avg)/c_array.size();
+    //    cout << "c is "<< c_array.at(i)<<endl;
+  }
+
+  return sqrt(sigma);
 }
 
 double Track::GetFWHM(TH1D*&dist){
@@ -325,26 +367,40 @@ double Track::GetFWHM(TH1D*&dist){
 //later do for different z
 
 int main(){
-  double length = 100; // [cm] length of track
+  double length = 40; // [cm] length of track
   double segment = 2; // [cm] segment analyzed
-  double factor = .7; // truncation factor
+  double factor = .6; // truncation factor
   
-  Track pion{140,50,length,segment,factor};
+  Track pion{140,56,length,segment,factor};
+
   pion.SetInvXSec("P10M0invw_31623.inv");
   cout << "Bgamma is " << pion.Getbg() << endl;
   cout << "Mean free path " << pion.GetMpath() <<endl;
+  //  pion.SetMomentum(200);
+  cout << "Bgamma is " << pion.Getbg() << endl;
+  cout << "Mean free path " << pion.GetMpath() <<endl;
   //       t.GetElossArray(1e6);
+  //What i need to do next
+  /* 
+I need to make sure the truncation works
+the Draw fDist is not C dist
+The C distribution is right in units
+make a <C> function
+verify the distribution f(C) works in han's paper
+figure out how to make a graph of Sigma vs momentum for particle type
 
+  */
   TH1D *h1;
   //   h1 = b.DrawElossDist(100);
-  //    h1 = t.Drawfdist(1e5,20);
-  //    cout<<t.GetFWHM(h1)<<endl;
+  h1 = pion.Drawfdist(1e3,20);
+  //  cout << "FWHM        " << pion.GetFWHM(h1) << endl;
+  cout << "Mean: " << pion.GetCavg() <<" Sigma: " << pion.GetCsigma()<<endl;
   //        h1 = t.DrawMultColl(2,100);
 
   TCanvas *c1 = new TCanvas(1);
   //  h1->GetXaxis()->SetRangeUser(9,100);
   
-  //  h1->Draw();
+  h1->Draw();
   //  c1->SetLogx();
   c1->SaveAs("test.jpg");
 
