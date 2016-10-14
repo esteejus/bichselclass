@@ -279,8 +279,12 @@ void Track::Getfarray(){
 
 TH2D* Track::GraphMomRange(int mc_tracks,int steps,double mom_min, double mom_max){
   double mom_step = (mom_max - mom_min)/steps;
-  TString histname = Form("tracklength %d P10 gas",t_length);
-  TH2D *pid = new TH2D("pid",histname,5000,0,5000,1000,0,20);
+  TString histname = Form("tracklength %f cm P10 gas",t_length);
+  TH2D *pid = new TH2D("pid",histname,1000,0,5000,1000,0,20);
+  pid->GetYaxis()->SetTitle("<C> [keV/cm]");
+  pid->GetYaxis()->CenterTitle();
+  pid->GetXaxis()->SetTitle("p [MeV/c]");
+  pid->GetXaxis()->CenterTitle();
   
   for(int j=0;j<=steps;++j){
     for(int i=0;i<mc_tracks;++i){
@@ -325,6 +329,18 @@ TH1D * Track::DrawCdist(double max_eloss){
 
   return dist;
 }
+
+//void Track::SimpsonNInt(){
+
+//}
+
+//I want to get the array of f(xi) and xi array of the f(C) distribution
+//this means i need to give the step size in xi and bin the f(C) values
+//or I can just work from the TH1D but I think I dont want to do that.
+//Once i have the two arrays then I can integrate the funciton
+//I will make a function maybe SimponNInt() that an returns an array which is the integrated values
+//of the funciton and the new x values of the integrand
+//Then Within a program I can 
 
 void Track::Truncate(){
   //factor is fraction  you keep. i.e. factor=.7 means we keep bottom 70% throw away top 30%
@@ -383,11 +399,11 @@ double Track::GetFWHM(TH1D*&dist){
 //later do for different z
 
 int main(){
-  int mc_steps=1e2;
+  int mc_steps=1e3;
 
   double amu=938;     //MeV/c^2
-  double length = 40; // [cm] length of track
-  double segment = 2; // [cm] segment analyzed
+  double length = 50; // [cm] length of track
+  double segment = 1.2; // [cm] segment analyzed
   double factor = .7; // truncation factor
 
   Track pion{140,100,length,segment,factor};
@@ -400,37 +416,47 @@ int main(){
   d.SetInvXSec("P10M0invw_31623.inv");
   t.SetInvXSec("P10M0invw_31623.inv");
 
-  
-  // cout << "Bgamma is " << pion.Getbg() << endl;
+    // cout << "Bgamma is " << pion.Getbg() << endl;
   //  cout << "Mean free path " << pion.GetMpath() <<endl;
 
     TH2D *pi_hist;
     TH2D *p_hist;
     TH2D *d_hist;
     TH2D *t_hist;
-
+    /*
     pi_hist = pion.GraphMomRange(mc_steps,100,50,1000);
     p_hist =     p.GraphMomRange(mc_steps,150,300,2000);
     d_hist =     d.GraphMomRange(mc_steps,150,600,2500);
-    t_hist =     t.GraphMomRange(mc_steps,150,600,2500);
-			     
-  /*
-  TH1D *h1;
+    t_hist =     t.GraphMomRange(mc_steps,150,800,2500);
+    */			     
+
+  TH1D *f;
+  TH1D *c;
   //   h1 = b.DrawElossDist(100);
-  h1 = pion.Drawfdist(1e3,20);
+  f = pion.Drawfdist(1e5,20);
+  c = pion.DrawCdist(6);
   //  cout << "FWHM        " << pion.GetFWHM(h1) << endl;
   cout << "Mean: " << pion.GetCavg() <<" Sigma: " << pion.GetCsigma()<<endl;
   //        h1 = t.DrawMultColl(2,100);
 
-  */
+
   TCanvas *c1 = new TCanvas(1);
+  /*
     t_hist->Add(pi_hist);
     t_hist->Add(p_hist);
     t_hist->Add(d_hist);
 
   t_hist->Draw("colz");
-			 //  c1->SetLogy();
-  c1->SaveAs("pid_sum.jpg");
+  t_hist->RebinX(4);
+  t_hist->GetYaxis()->SetRangeUser(0,16);
+  t_hist->GetXaxis()->SetRangeUser(0,2500);
+//  c1->SetLogy();
+*/
+  c->Draw();
+  c1->SaveAs("cdist.jpg");
+
+  //  Bichsel b(40);
+  //  TH1D *one,*two,*three;
 
   return 0;
 }
