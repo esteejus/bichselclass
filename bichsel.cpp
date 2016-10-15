@@ -3,8 +3,8 @@
 
 double Bichsel::InterTableLin(double r){
   double y = -999999;//interpolated y value from table
-  int rd_up=floor(r);//round up value
-  int rd_down=ceil(r);//round down and down integers for 
+  int rd_down=floor(r);//round up value
+  int rd_up=ceil(r);//round down and down integers for 
 
   if(rd_up!=rd_down){
     double m=0.;//slope

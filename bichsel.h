@@ -9,6 +9,7 @@
 #include <sstream>
 #include <algorithm>
 #include <numeric>
+#include <cmath>
 #include "TRandom3.h"
 #include "TH1.h"
 #include "TString.h"

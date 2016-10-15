@@ -19,12 +19,13 @@ public:
 
   TH2D* GraphMomRange(int,int,double,double);//graph a momentum range
 
-  void Getfarray();//f(E) is the probability distribution for an energy loss E; sample from this and store in f_array 
-  void SortArray(){sort(f_array.begin(), f_array.end(), std::less<double>());}
-  void Printfarray(){for(int i=0;i<f_array.size();++i) std::cout << f_array.at(i) << std::endl;}
-  void SetMomentum(double);
   void SetLength(double length){t_length = length;}
   void SetTruncFactor(double factor){t_factor = factor;}
+  void SortArray(){sort(f_array.begin(), f_array.end(), std::less<double>());}
+  void Printfarray(){for(int i=0;i<f_array.size();++i) std::cout << f_array.at(i) << std::endl;}
+  void PrintCarray(){for(int i=0;i<c_array.size();++i) std::cout << c_array.at(i) << std::endl;}
+  void SetMomentum(double);
+  void Getfarray();//f(E) is the probability distribution for an energy loss E; sample from this and store in f_array 
   void Truncate();
   void GetC();//calculate C for a given track
 
@@ -36,6 +37,11 @@ public:
   double GetMean(TH1D *&dist){return dist->GetMean();}
   double GetFWHM(TH1D*&);
   double GetSigma(TH1D*&dist){return GetFWHM(dist)/2.355;}
+
+  std::vector<std::vector<double>> HistArray(double,double,double);
+  std::vector<std::vector<double>> SimpsonNInt(double,double,double);
+
+
 };
 
 #endif

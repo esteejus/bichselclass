@@ -92,9 +92,82 @@ TH1D * Track::DrawCdist(double max_eloss){
   return dist;
 }
 
-//void Track::SimpsonNInt(){
+std::vector<std::vector<double>> Track::HistArray(double step_size,double low_lim, double up_lim){
 
-//}
+  int num_steps = ceil((up_lim-low_lim)/step_size);//round up value
+  //  std::cout<<"number of steps is "<<num_steps<<std::endl;
+  std::vector<std::vector<double> > hist;
+  
+  //sort the <C> array to prepare it for binning into vector
+  sort(c_array.begin(),c_array.end(),std::less<double>());
+  PrintCarray();
+  //Initialize an array integral[i][j] where i runs from 0,1
+  //0 componet stores the  center of the bin value [keV/cm]
+  //1 componet stores the counts of the histogram or normalized value
+  hist.resize(2);
+  for (int i = 0; i < 2; ++i) {
+    hist[i].resize(num_steps);
+  }
+  
+  //first we bin into a histogram
+  for(int i=0;i<num_steps;++i){
+    double center_x = (low_lim + step_size/2) + (step_size*i);
+    int count=0;
+    for(int j=0;j<c_array.size();++j){
+      if(c_array.at(j)>=(i*step_size) && ((i+1)*step_size)>=c_array.at(j)) count++;
+    }
+    //    std::cout<<i<<" x : "<<center_x<<" count "<<count<<std::endl;
+      hist[0][i] = center_x;
+      hist[1][i] = count;
+  }
+
+  return hist;
+}
+
+std::vector<std::vector<double>> Track::SimpsonNInt(double step_size,double low_lim, double up_lim){
+
+  int num_steps = ceil((up_lim-low_lim)/step_size);//round up value
+
+  std::vector<std::vector<double> > integral,histogram;
+  hist = HistArray(step_size,low_lim,up_lim);
+
+  //Initialize an array integral[i][j] where i runs from 0,1
+  //0 componet stores the  x value in the cumulative integral [keV/cm]
+  //1 componet stores the integral value which is normalized
+
+  integral.resize(2);
+  for (int i = 0; i < 2; ++i) {
+    integral[i].resize(num_steps);
+    }
+
+  double sum=0.;//cumulative integral
+
+  if(hist[0].size()!=num_steps)std::cout << "ERROR histogram and step size are different" << std::endl;
+
+  if(num_steps%2==0){std::cout<<"even"<<std::endl;num_steps--;}//simpson's rule requies odd number set
+  std::cout<<num_steps<<std::endl;
+
+  for(int i=0;i<num_steps;++i){
+    double sum=0.;//cumulative integral
+    double x =0.;//cumulative x position
+    double df =0.;//integral step
+    if( (i+2) != num_steps ){
+      //this whole section is wrong becareful and check
+      //you need to step in 2k not k
+      df = (step_size/3)*(hist[1][i] + 4*hist[1][i+1] + hist[1][i+2]);
+      dx = (hist[0][i] + hist[0][i+1] + hist[0][i+2]);
+      sum+=df;
+      integral[0][i+3] = 
+      
+    }
+    else break;
+
+  
+
+}
+  
+    return integral;
+}
 
 //I want to get the array of f(xi) and xi array of the f(C) distribution
 //this means i need to give the step size in xi and bin the f(C) values
