@@ -1,6 +1,13 @@
 //track.cpp
 #include "track.h"
 
+//things left to do
+//Find a better way to call the distributions
+//make sure that after calling the dist the arrays are cleared
+//Check if you call two differenct instances of the class the TH1 is not rewrittedn for some reason it seem to be that way
+//check that the track length is an integer of the segment size
+//need to write a program to scale/fit the cumulative integrals
+
 void Track::SetMomentum(double mom){
   t_momentum=mom;
   bgamma=(mom/sqrt(mom*mom + t_mass*t_mass))*(sqrt(mom*mom + t_mass*t_mass)/t_mass);
@@ -10,6 +17,8 @@ void Track::SetMomentum(double mom){
 }
 
 void Track::Getfarray(){
+  //  f_array.clear();
+  //  c_array.clear();
   //probably should check if t_length is integer of x_seg
   double t_dist = 0.;//total distance traveled
   double eloss = 0.;
@@ -17,7 +26,6 @@ void Track::Getfarray(){
   double dx = 0.;//step size
   
   while(t_dist<=t_length){
-    //      std::cout << "Current seg dist is "<<seg_dist<< " eloss is "<<eloss<<" current total l "<<t_dist<<std::endl;
     dx = GetMCstep();
     seg_dist += dx;
     t_dist += dx;
@@ -27,7 +35,6 @@ void Track::Getfarray(){
       seg_dist = seg_dist-x_seg;//remainder dx in next segment analyzed
       f_array.push_back(eloss/x_seg);
       eloss = GetEloss();//get the  energyloss in the next segment analyzed with current dx
-      //	std::cout<<" dist is greater than seg "<<std::endl;
     }
       
     else eloss += GetEloss();//step size did not put us over the current analyzed segment; step in dE
@@ -116,7 +123,6 @@ std::vector<std::vector<double>> Track::HistArray(double step_size,double low_li
     for(int j=0;j<c_array.size();++j){
       if(c_array.at(j)>=(i*step_size) && ((i+1)*step_size)>=c_array.at(j)) count++;
     }
-    //        std::cout<<i<<" x : "<<center_x<<" count "<<count<<std::endl;
       hist[0][i] = center_x;
       hist[1][i] = count;
   }
@@ -170,18 +176,9 @@ std::vector<std::vector<double>> Track::SimpsonNInt(double step_size,double low_
   return integral;
 }
 
-//I want to get the array of f(xi) and xi array of the f(C) distribution
-//this means i need to give the step size in xi and bin the f(C) values
-//or I can just work from the TH1D but I think I dont want to do that.
-//Once i have the two arrays then I can integrate the funciton
-//I will make a function maybe SimponNInt() that an returns an array which is the integrated values
-//of the funciton and the new x values of the integrand
-//Then Within a program I can 
-
 void Track::Truncate(){
   //factor is fraction  you keep. i.e. factor=.7 means we keep bottom 70% throw away top 30%
   int elem2trunc = round((1-t_factor)*f_array.size());
-  //  std::cout << " elem to trunc is "<<elem2trunc<<std::endl;
   for(int i=0;i<elem2trunc;++i) f_array.pop_back();
 
   return;
