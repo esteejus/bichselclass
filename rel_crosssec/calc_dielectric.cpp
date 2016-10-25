@@ -69,7 +69,9 @@ double im_epsilon(double x, void * p) {
 double photo_cross(double x, void * p) {
   struct f_params * params = (struct f_params *)p;
   tk::spline f_cross = (params->b);
-
+  //if you want to make a nice code put the vectors used to interpolate
+  //in to the first if statement vector.front() and .back() for the
+  //piecewise function
   double f=0.;//function value
   if( x>=10.6406 && x<=500 ) f = f_cross(x);
   else if( x > 500 && x < 3206 ) f = 1.346*pow(500/x,2.54);
@@ -99,22 +101,10 @@ int main(){
 
   SetTable(f_cross,energy,cross,"./argon10eV_500eV.dat");
 
-  int num_points = 1e3;
+  int num_points = 1e4;
   TGraph *imaginary = new TGraph(num_points);
   TGraph *real = new TGraph(num_points);//actually Re[e]-1
 
-  output.open("real_imaginary.dat");
-  if (output.is_open()){
-    output<<"Data table for Imaginary Im[epsilon] and real componets Re[epsilon] for Argon gas"<<endl;
-    output<<"Re and Im values are multiplied by 1e4 to better display the scale"<<endl;
-    output<<"Energy[eV]"<<"\t"<<"Re*1e4"<<"\t"<<"Im*1e4"<<endl;
-    
-    for(int i=2;i<num_points;++i){
-      gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-  
-      double result, error;
-      double expected = 158.176;
-    
       double units_cross = 1e-18;  // [cm^2]
       double density = 1.662e-3;   // [g/cm^3]
       double molarmass = 39.948;   // [g/mol]
@@ -125,16 +115,27 @@ int main(){
       //I chose to incorperate it into avogadros number
       //since avogadros number is so large to prevent precision error
       double avogadro = 6.022e23*units_cross; // [atoms/mol]*scalefactor
-      double e = i; //[eV] value to evaluate epsilon(e) at E in the integrand
       double atom_cm3 = (density / molarmass) * avogadro; //[atoms/cm^3] or N in the equation
 
-      cout <<" Number of atoms/cm^3 is "<<atom_cm3<<endl;
+  output.open("real.dat");
+  if (output.is_open()){
+    output<<"Data table for Real componets Re[epsilon] for Argon gas"<<endl;
+    output<<"Re values are multiplied by 1e4 to better display the scale"<<endl;
+    output<<"Energy[eV]"<<"\t"<<"Re*1e4"<<endl;
+
+    for(int i=2;i<num_points;++i){
+
+      double e = i; //[eV] value to evaluate epsilon(e) at E in the integrand
       struct f_params alpha = {e,f_cross,atom_cm3};
+
+      double result, error;
+      double expected = 158.176;
+
+      gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
 
       gsl_function F;
       F.function = &im_epsilon;
       F.params = &alpha;
-
       //  gsl_integration_qags (&F, 500, 10000, 0, 1e-6, 1000,w, &result, &error); 
       gsl_integration_qawc (&F, 1, 1e6, e, 0, 1e-3, 1000,w, &result, &error); 
 
@@ -148,71 +149,50 @@ int main(){
 
       //fill the TGraphs
       void * p = &alpha;
-    
-      double im_value = im_epsilon(i,p)/1e-4;
-      double re_value = (result)/1e-4;
 
+      double re_value = (result)/1e-4;
       //fill TGraph
-      imaginary->SetPoint(i,i,im_value);
       real->SetPoint(i,e,result/1e-4);
 
       //output to .dat file
-      output<<i<<"\t"<<im_value<<"\t"<<re_value<<endl;
+      output<<i<<"\t"<<re_value<<endl;
 
 
     }
   }
 
-      gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+  ofstream im_output;
+  im_output.open("imaginary.dat");
+
+  if (im_output.is_open()){
+    int im_steps = 1e6;
+    double im_energystep = 10000./im_steps;
+    cout<<im_energystep<<endl;
+      for(int i=1;i<=im_steps;++i){
+	
+	double im_energy = i * im_energystep;//point E to evaluate
+	struct f_params alpha = {im_energy,f_cross,atom_cm3};
+	void * p = &alpha;
+	
+	double im_value = im_epsilon(im_energy,p)/1e-4;
+		cout<<im_value<<endl;
+	imaginary->SetPoint(i,im_energy,im_value);
+	im_output<<im_energy<<"\t"<<im_value<<endl;
+      }
+  }
   
-      double result, error;
-      double expected = 18;
-    
-      double units_cross = 1e-18;  // [cm^2]
-      double density = 1.662e-3;   // [g/cm^3]
-      double molarmass = 39.948;   // [g/mol]
-      //ASSUMPTION!!!!
-      //we assume that the units of cross section, sigma, are given in cm^2
-      //units of cross seciton read in are not SI units
-      //we have to incorperate this scale somwhere
-      //I chose to incorperate it into avogadros number
-      //since avogadros number is so large to prevent precision error
-      double avogadro = 6.022e23*units_cross; // [atoms/mol]*scalefactor
-      double e = 10; //[eV] value to evaluate epsilon(e) at E in the integrand
-      double atom_cm3 = (density / molarmass) * avogadro; //[atoms/cm^3] or N in the equation
-
-      cout <<" Number of atoms/cm^3 is "<<atom_cm3<<endl;
-      struct f_params alpha = {e,f_cross,atom_cm3};
-
-      gsl_function F;
-      F.function = &dipole_oscill;
-      F.params = &alpha;
-
-        gsl_integration_qags (&F, 0, 1e6, 0, 1e-4, 1000,w, &result, &error); 
-      //gsl_integration_qawc (&F, 200, 1e4, e, 0, 1e-2, 1000,w, &result, &error); 
-
-      printf ("result          = % .18f\n", result);
-      printf ("exact result    = % .18f\n", expected);
-      printf ("estimated error = % .18f\n", error);
-      printf ("actual error    = % .18f\n", result - expected);
-      printf ("intervals       = %zu\n", w->size);
-
-      gsl_integration_workspace_free (w);
-
-
-
-
-
-    
   TCanvas *c1 = new TCanvas(1);
   imaginary->SetTitle("#delta#[]{E} = Im[#epsilon#(){E}]");
   imaginary->GetYaxis()->SetTitle("#delta#[]{E}*10^{4}");
   imaginary->GetYaxis()->CenterTitle();
   imaginary->GetXaxis()->SetTitle("E [eV]");
   imaginary->GetXaxis()->CenterTitle();
+  //  imaginary->GetXaxis()->SetRangeUser(10,20);
+    imaginary->GetXaxis()->SetRangeUser(10,5e2);
   imaginary->Draw();
  
   c1->SetLogx();
+  c1->SetLogy();
   c1->SaveAs("imaginary.jpg");
  
   TCanvas *c2 = new TCanvas(1);
@@ -229,7 +209,7 @@ int main(){
   c2->SaveAs("real.jpg");
   
   return 0;
-}
+  }
 
 
 
