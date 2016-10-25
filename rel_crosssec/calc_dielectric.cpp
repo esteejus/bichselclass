@@ -49,7 +49,7 @@ double integrand(double x, void *p) {
 
   struct f_params * params = (struct f_params *)p;
   double e = (params->a);//energy E in the integrand 
-  double f = (2/3.1415) * x * im_epsilon(x,p)/(x + e);
+  double f = ( (2/3.1415) * x * im_epsilon(x,p))/(x + e);
     
   return f;
 }
@@ -59,7 +59,8 @@ double im_epsilon(double x, void * p) {
   //n is usually scaled to account for the real values of cross section
   double n = (params->c);// [atoms/cm^3]*scale
   double hbar_c = 1.97327e-5; // [eV *cm]
-  double coeff = hbar_c*n;
+  double z      = 18.;
+  double coeff = (hbar_c * n)/z;
   double f = 0.;
   f = coeff*photo_cross(x,p)/x;
 
@@ -101,7 +102,7 @@ int main(){
 
   SetTable(f_cross,energy,cross,"./argon10eV_500eV.dat");
 
-  int num_points = 1e4;
+  int num_points = 2.1e4;
   TGraph *imaginary = new TGraph(num_points);
   TGraph *real = new TGraph(num_points);//actually Re[e]-1
 
@@ -123,11 +124,14 @@ int main(){
     output<<"Re values are multiplied by 1e4 to better display the scale"<<endl;
     output<<"Energy[eV]"<<"\t"<<"Re*1e4"<<endl;
 
+    double energy_step = 1.e4/num_points;
     for(int i=2;i<num_points;++i){
-
-      double e = i; //[eV] value to evaluate epsilon(e) at E in the integrand
+      
+      double e = i * energy_step; //[eV] value to evaluate epsilon(e) at E in the integrand
+      //      if(e<10.6)continue;
+      cout<<"Energy step is "<<e<<endl;
       struct f_params alpha = {e,f_cross,atom_cm3};
-
+      
       double result, error;
       double expected = 158.176;
 
@@ -137,8 +141,8 @@ int main(){
       F.function = &im_epsilon;
       F.params = &alpha;
       //  gsl_integration_qags (&F, 500, 10000, 0, 1e-6, 1000,w, &result, &error); 
-      gsl_integration_qawc (&F, 1, 1e6, e, 0, 1e-3, 1000,w, &result, &error); 
-
+      gsl_integration_qawc (&F, 2, 1e5, e, 0, 1e-3, 1000,w, &result, &error); 
+      cout<<i<<endl;
       printf ("result          = % .18f\n", result);
       printf ("exact result    = % .18f\n", expected);
       printf ("estimated error = % .18f\n", error);
@@ -155,7 +159,7 @@ int main(){
       real->SetPoint(i,e,result/1e-4);
 
       //output to .dat file
-      output<<i<<"\t"<<re_value<<endl;
+      output<<e<<"\t"<<re_value<<endl;
 
 
     }

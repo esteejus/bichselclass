@@ -11,7 +11,7 @@
 
 using namespace std;
 
-
+struct int_params {tk::spline s; std::vector<double> a; std::vector<double> b;};
 struct f_params {tk::spline b; double real; double imag; double beta; double den; double integrand;};
 
 void SetTable(tk::spline &f_cross,std::vector<double> &x, std::vector<double> &y,const string& filename) {
@@ -96,16 +96,31 @@ double cross_section(double x, void *p){
   
 }
 
+double int_cross(double x, void * p){
+  double f = 0;
+  struct int_params * params = (struct int_params *)p;
+  //struct int_params {tk::spline s, std::vector<double> a; std::vector<double> b};
+  tk::spline cross = (params->s);
+  std::vector<double> e_cross = (params->a);
+  std::vector<double> f_cross = (params->b);
+
+  if(x>e_cross.front() && x<e_cross.back())f = cross(x);
+  else f = 0;
+
+  return f;
+
+}
 
 int main(){
   //===================
   //GAS parameters
   //===================
-  double density = 1.662e-3;   // [g/cm^3]
+  double density   = 1.662e-3;   // [g/cm^3]
   double molarmass = 39.948;   // [g/mol]
-  double avogadro = 6.022e23; // [atoms/mol]*scalefactor
-  double atom_cm3 = (density / molarmass) * avogadro; //[atoms/cm^3] or N in the equation
-
+  double scale     = 1.e-18;
+  double avogadro  = 6.022e23; // [atoms/mol]*scalefactor
+  double atom_cm3  = (density / molarmass) * avogadro; //[atoms/cm^3] or N in the equation
+  double n = atom_cm3 * scale;
   //=====================
   //Set the dilectric data files here
   //====================
@@ -137,11 +152,11 @@ int main(){
   std::vector<double>e_relcross,rel_cross;
   TGraph *g_cross = new TGraph(num_steps);
 
-  for(int i=0;i<=num_steps;++i){
+  for(int i=1;i<=num_steps;++i){
         double energy = i * e_stepsize;
 	if(energy<10.7)continue;
-cout<<"on "<<i<< "energy "<<energy<<endl;
-    if(energy <= e_im.back() && energy <= e_re.back()){
+	cout<<"on "<<i<< "energy "<<energy<<endl;
+	if(energy <= e_im.back() && energy <= e_re.back()){
       double ep_re = real(energy)*1.e-4 + 1; //table is Re[e]-1
       double ep_im = imaginary(energy)*1.e-4;
       
@@ -153,7 +168,7 @@ cout<<"on "<<i<< "energy "<<energy<<endl;
       gsl_function F;
       F.function = &photo_cross;
       F.params = &alpha;
-      gsl_integration_qags (&F, 10.6, energy, 0, 1e-3, 1000,w, &result, &error);    
+      gsl_integration_qags (&F, 0, energy, 0, 1e-3, 1000,w, &result, &error);    
       printf ("result          = % .18f\n", result);
       //      printf ("exact result    = % .18f\n", expected);
       printf ("estimated error = % .18f\n", error);
@@ -183,6 +198,22 @@ cout<<"on "<<i<< "energy "<<energy<<endl;
   //===========================
     tk::spline s_cross;
   s_cross.set_points(e_relcross,rel_cross);
+  struct int_params  alpha_2 = {s_cross,e_relcross,rel_cross};
+
+        double result, error;
+      gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+      gsl_function F;
+      F.function = &int_cross;
+      F.params = &alpha_2;
+      gsl_integration_qags (&F, 0, 1e4, 0, 1e-3, 1000,w, &result, &error);    
+      printf ("Collisions/cm          = % .18f\n", n*result);
+      //      printf ("exact result    = % .18f\n", expected);
+      printf ("estimated error = % .18f\n", error);
+      //      printf ("actual error    = % .18f\n", result - expected);
+      printf ("intervals       = %zu\n", w->size);
+
+      gsl_integration_workspace_free (w);
+
 
   TCanvas *c1 = new TCanvas(1);
   c1->SetLogx();
