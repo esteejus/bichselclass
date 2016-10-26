@@ -49,8 +49,11 @@ double integrand(double x, void *p) {
 
   struct f_params * params = (struct f_params *)p;
   double e = (params->a);//energy E in the integrand 
+  double n = (params->c);// [atoms/cm^3]*scale
+  double hbar_c = 1.97327e-5; // [eV *cm]
   double f = ( (2/3.1415) * x * im_epsilon(x,p))/(x + e);
-    
+  //  double f = ((n*2*hbar_c)/3.1415)*photo_cross(x,p)/(x+e);
+  //  double f = ((n*2*hbar_c)/3.1415)*photo_cross(sqrt(x),p)/(2*sqrt(x));
   return f;
 }
   
@@ -59,11 +62,11 @@ double im_epsilon(double x, void * p) {
   //n is usually scaled to account for the real values of cross section
   double n = (params->c);// [atoms/cm^3]*scale
   double hbar_c = 1.97327e-5; // [eV *cm]
-  double z      = 18.;
+  double z      = 1;
   double coeff = (hbar_c * n)/z;
   double f = 0.;
-  f = coeff*photo_cross(x,p)/x;
-
+    f = coeff*photo_cross(x,p)/x;
+  
   return f;
 }
 
@@ -106,17 +109,17 @@ int main(){
   TGraph *imaginary = new TGraph(num_points);
   TGraph *real = new TGraph(num_points);//actually Re[e]-1
 
-      double units_cross = 1e-18;  // [cm^2]
-      double density = 1.662e-3;   // [g/cm^3]
-      double molarmass = 39.948;   // [g/mol]
-      //ASSUMPTION!!!!
-      //we assume that the units of cross section, sigma, are given in cm^2
-      //units of cross seciton read in are not SI units
-      //we have to incorperate this scale somwhere
-      //I chose to incorperate it into avogadros number
-      //since avogadros number is so large to prevent precision error
-      double avogadro = 6.022e23*units_cross; // [atoms/mol]*scalefactor
-      double atom_cm3 = (density / molarmass) * avogadro; //[atoms/cm^3] or N in the equation
+  double units_cross = 1e-18;  // [cm^2]
+  double density = 1.662e-3;   // [g/cm^3]
+  double molarmass = 39.948;   // [g/mol]
+  //ASSUMPTION!!!!
+  //we assume that the units of cross section, sigma, are given in cm^2
+  //units of cross seciton read in are not SI units
+  //we have to incorperate this scale somwhere
+  //I chose to incorperate it into avogadros number
+  //since avogadros number is so large to prevent precision error
+  double avogadro = 6.022e23*units_cross; // [atoms/mol]*scalefactor
+  double atom_cm3 = (density / molarmass) * avogadro; //[atoms/cm^3] or N in the equation
 
   output.open("real.dat");
   if (output.is_open()){
@@ -156,8 +159,8 @@ int main(){
 
       double re_value = (result)/1e-4;
       //fill TGraph
-      real->SetPoint(i,e,result/1e-4);
-
+      //      real->SetPoint(i,e,result/1e-4);
+      real->SetPoint(i,sqrt(e),result/1.e-4);
       //output to .dat file
       output<<e<<"\t"<<re_value<<endl;
 
@@ -184,6 +187,8 @@ int main(){
 	im_output<<im_energy<<"\t"<<im_value<<endl;
       }
   }
+
+  cout<<"NUM of atoms/cm^3 is "<<atom_cm3<<endl;
   
   TCanvas *c1 = new TCanvas(1);
   imaginary->SetTitle("#delta#[]{E} = Im[#epsilon#(){E}]");
