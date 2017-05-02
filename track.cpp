@@ -75,7 +75,7 @@ TH2D* Track::GraphMomRange(int mc_tracks,int steps,double mom_min, double mom_ma
 
 TH1D* Track::Drawfdist(int mc_events,double max_eloss){
   TString histname = Form("test");
-  TH1D *dist = new TH1D("f_dist",histname,1000,0,max_eloss);
+  TH1D *dist = new TH1D("f_dist",histname,2000,0,max_eloss);
   for(int i=0;i<mc_events;++i){
     Getfarray();
     SortArray();
@@ -86,8 +86,8 @@ TH1D* Track::Drawfdist(int mc_events,double max_eloss){
     for(int j=0;j<f_array.size();++j) dist->Fill(f_array.at(j)/1000);
     f_array.clear();
   }
-  dist->Scale(1./dist->GetEntries());
-
+  dist->Scale(1./dist->Integral("width"));
+  std::cout<<"Integral is "<<dist->Integral();
   return dist;
 }
 

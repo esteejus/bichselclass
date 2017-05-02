@@ -125,10 +125,10 @@ void Bichsel::PrintInvTable(){
 }
 
 double Bichsel::GetM0(double x){
-  if(x<.25){
+  if(x<.03){
     cout << "Beta*gamma is less than the min. range for interpolation" << endl;
-    cout << "setting Beta*gamma to a reasonable minimum .25" << endl;
-    x=.25;
+    cout << "setting Beta*gamma to a reasonable minimum .03" << endl;
+    x=.03;
   }
   else if(x>5000){
     cout << "Beta*gamma is less than the max range for interpolation" << endl;
