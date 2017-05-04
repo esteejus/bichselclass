@@ -87,8 +87,8 @@ double LAP_photo_cross(double x, void * p) {
   //in to the first if statement vector.front() and .back() for the
   //piecewise function
   double f=0.;//function value
-  if( x>=15.75 && x<=248 ) f = f_cross(x);
-  else if( x > 248 && x < 3206 ) f = 4.51*pow(248/x,2.29);
+  if( x>=15.75 && x<=245 ) f = f_cross(x);
+  else if( x > 245 && x < 3206 ) f = 4.51*pow(248/x,2.29);
   else if( x >= 3206) f = .1*pow(3206/x,2.75);
   else f = 0;
 
@@ -115,7 +115,7 @@ double dipole_oscill(double x, void *p) {
   double f = 0.;
   double z = 18; //atomic number
   double scale = 1e-18; //photo cross section is scaled down by 1e-18
-  f = (photo_cross_interp(x,p) * scale)/(1.097e-16 * z);
+  f = (LAP_photo_cross(x,p) * scale)/(1.097e-16 * z);
 
   return f;
 }
@@ -124,7 +124,7 @@ double log_dipole_oscill(double x, void *p) {
   double f = 0.;
   double z = 18; //atomic number
   double scale = 1e-18; //photo cross section is scaled down by 1e-18
-  f = log(x)*(photo_cross_interp(x,p) * scale)/(1.097e-16 * z);
+  f = log(x)*(LAP_photo_cross(x,p) * scale)/(1.097e-16 * z);
 
   return f;
 }
@@ -135,10 +135,10 @@ int main(){
   std::vector<double> energy,cross; //vectors to store the table data
   tk::spline f_cross;
 
-   SetTable(f_cross,energy,cross,"./argon10eV_500eV.dat");
-  //  SetTable(f_cross,energy,cross,"./argon_west.dat");
+  //SetTable(f_cross,energy,cross,"./argon10eV_500eV.dat");
+  SetTable(f_cross,energy,cross,"./argon_west_test.dat");
   //  SetPhotoCross("./argon_west.dat");
-   SetPhotoCross("blum_rold_argon_photo.dat");
+  //   SetPhotoCross("blum_rold_argon_photo.dat");
   
   int num_points = 5e2;
 
@@ -163,7 +163,7 @@ int main(){
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
   gsl_function F;
   
-  F.function = &log_dipole_oscill;
+  F.function = &dipole_oscill;
   // F.function = &dipole_oscill;
   F.params = &alpha;
   gsl_integration_qag (&F, 0, 1e5, 0, 1e-3,1000,2,w, &result, &error); 
@@ -175,7 +175,27 @@ int main(){
   printf ("intervals       = %zu\n", w->size);
   
   gsl_integration_workspace_free (w);
+
+  void *g = &alpha;
+  int npoints = 1e5;
+  double energystep = .1;
+  TGraph interp = TGraph(npoints);
+
+  for(int i=0;i<npoints;++i){
+    double energy = energystep*i;
+    double sigma = LAP_photo_cross(energy,g);
+    //    if(energy>200 && energy<230)cout<<energy<<" "<<sigma<<endl;
+    interp.SetPoint(i,energy,sigma);
+  }
+
+  TCanvas *c1 = new TCanvas("c1","c1",1);
+  c1->SetLogx();
+  c1->SetLogy();
+  interp.Draw();
+  c1->SaveAs("interp_cross.png");
+
   
+
   //fill the TGraphs
   void * p = &alpha;
 
