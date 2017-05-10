@@ -66,6 +66,7 @@ void SetPhotoCross (const std::string& filename) {
       std::istringstream in(line);
       in>>d_energy;
       in>>d_value;
+      //      cout<<d_energy<<" "<<d_value<<endl;
       photoenergy.push_back(d_energy);
       photovalue.push_back(d_value);
     }
@@ -136,11 +137,11 @@ double photo_cross_interp(double x, void * p) {
   double *x_a = &photoenergy[0];
   double *y_a = &photovalue[0];
   int size_a = photoenergy.size();
-  photo_cross_table = gsl_spline_alloc(gsl_interp_cspline,size_a);
+  photo_cross_table = gsl_spline_alloc(gsl_interp_akima,size_a);
   gsl_spline_init(photo_cross_table,x_a,y_a,size_a);
 
 
-  cout<<"Emin "<<emin<<" "<<emax<<endl;
+
   if( x>=emin && x<=emax ) f = gsl_spline_eval(photo_cross_table,x,acc);
   else f = 0;
 
@@ -175,19 +176,19 @@ int main(){
   //  tk::spline f_cross;
   gsl_spline *f_cross;
   //    SetTable(f_cross,energy,cross,"./argon10eV_500eV.dat");
-  SetTable(f_cross,x,y,"./argon_west_test.dat");
+  //  SetTable(f_cross,x,y,"./argon_west_test.dat");
     //    SetPhotoCross("./argon_west.dat");
-   //   SetPhotoCross("blum_rold_argon_photo.dat");
+  //      SetPhotoCross("blum_rold_argon_photo.dat");
+      SetPhotoCross("./ch4.dat");
   //  double *x_a = x->data();
   //  double *y_a = y->data();
   //cout<<x_a[0]<<endl;
-  /*
+
   int size_a = x->size();
   cout<<size_a<<endl;
-  f_cross = gsl_spline_alloc(gsl_interp_cspline,size_a);
-  gsl_spline_init(f_cross,x_a,y_a,size_a);
+  //  f_cross = gsl_spline_alloc(gsl_interp_cspline,size_a);
+  //  gsl_spline_init(f_cross,x_a,y_a,size_a);
 
-    cout<<gsl_spline_eval(f_cross,30.,acc);
 
   double units_cross = 1e-18;  // [cm^2]
   double density = 1.662e-3;   // [g/cm^3]
@@ -203,6 +204,7 @@ int main(){
 
   double e = 0;//not used in this test
   struct f_params alpha = {e,f_cross,atom_cm3};
+  /*
   double stepsize = 10;
 
   double result, error;
@@ -224,16 +226,18 @@ int main(){
   printf ("intervals       = %zu\n", w->size);
   
   gsl_integration_workspace_free (w);
-
+  */
   void *g = &alpha;
+
   int npoints = 1e5;
   double energystep = .1;
   TGraph interp = TGraph(npoints);
 
   for(int i=0;i<npoints;++i){
     double energy = energystep*i;
-    double sigma = photo_cross(energy,g);
-    if(energy>200 && energy<230)cout<<energy<<" "<<sigma<<endl;
+    double sigma = photo_cross_interp(energy,g);
+    cout<<energy<<" "<<sigma<<endl;
+    //    if(energy>200 && energy<230)cout<<energy<<" "<<sigma<<endl;
     interp.SetPoint(i,energy,sigma);
   }
 
@@ -242,7 +246,7 @@ int main(){
   c1->SetLogy();
   interp.Draw();
   c1->SaveAs("interp_cross.png");
-  */
+
   
   return 0;
   

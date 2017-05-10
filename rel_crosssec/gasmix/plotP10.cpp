@@ -69,8 +69,8 @@ int main(){
   
   SetTable(ch4_real,"./dielectricData/CH4_real.dat");
   //  SetTable(ar_real,"./dielectricData/Ar_real_qag.dat");
-  SetTable(ar_real,"./dielectricData/Blum_rolandi_RealEpsilon.dat"); 
-  SetTable(ar_real,"./dielectricData/LAP_Ar_real.dat"); 
+  //  SetTable(ar_real,"./dielectricData/Blum_rolandi_RealEpsilon.dat"); 
+    SetTable(ar_real,"./dielectricData/Ar_1_7834.dat"); 
   SetTable(p10_real,"./dielectricData/P10_real.dat");
 
   int num_points = 1e5;
@@ -85,8 +85,8 @@ int main(){
   double min = 8;
   double stepsize = (max-min)/num_points;
   
-  double ar_f = .9;
-  double ch4_f = .1;
+  double ar_f = .64;
+  double ch4_f = .25;
   
   for(int i = 0;i < num_points; ++i)
     {
