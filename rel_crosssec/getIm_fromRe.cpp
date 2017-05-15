@@ -125,9 +125,10 @@ int main(){
   gsl_spline *f_cross;
 
   //      SetPhotoCross("./bichsel_Re.dat");
-      SetPhotoCross("./myCH4.dat");
+  //      SetPhotoCross("./myCH4.dat");
+      SetPhotoCross("./realtest.dat");
 
-  int num_points = 9e2;
+  int num_points = 1e3;
   TGraph *imaginary = new TGraph(num_points);
 
   double units_cross = 1e-18;  // [cm^2]
@@ -152,7 +153,8 @@ int main(){
   if (output.is_open()){
     output<<"Energy[eV]"<<"\t"<<"Img"<<endl;
    
-    double energy_step = 1.e2/num_points;
+
+    double energy_step = 3.e2/num_points;
     for(int i=1;i<num_points;++i){
 
       double e = i * energy_step; //[eV] value to evaluate epsilon(e) at E in the

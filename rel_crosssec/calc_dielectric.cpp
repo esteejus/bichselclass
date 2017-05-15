@@ -201,24 +201,10 @@ double LAP_photo_cross(double x, void * p) {
 
 
 double photo_cross_interp(double x, void * p) {
-  struct f_params * params = (struct f_params *)p;
-  //  double emin = 0;//limit->at(0);
-  //  double emax = 0;//limit->at(1);
   double f=0.;//function value
-  //cout<<"emax min "<<emin<<" "<<emax<<endl;
-  //double *x_a = photoenergy.data();
-  //  double *y_a = photovalue.data();
-  //  int size_a = photoenergy.size();
-  //  cout<<emin<<" "<<emax<<" x "<<x<<endl;
-  //  photo_cross_table = gsl_spline_alloc(gsl_interp_akima,size_a);
-  //  gsl_spline_init(photo_cross_table,x_a,y_a,size_a);
-  //  cout<<"emax min "<<emin<<" "<<emax<<endl;
+
  if( x>=emin && x<=emax ) f =  gsl_spline_eval(photo_cross_table,x,acc);
  else f = 0;
-
- // cout<<x<<" "<<f<<endl;
-  //  delete x_a;
-  //   delete y_a;
  
   return f;
 
@@ -254,15 +240,16 @@ int main(){
   //  SetTable(f_cross,x,y,"./argon_west.dat");
   //    SetPhotoCross("./argon_west.dat");
   //   SetPhotoCross("blum_rold_argon_photo.dat");
-  SetPhotoCross("./ch4.dat");
-  
+  //    SetPhotoCross("./ch4.dat");
+      SetPhotoCross("./argon_10_500_Sakamoto.dat");
+
   //  double *x_a = x.data();
   //  double *y_a = y.data();
   //  int size_a = x.size();
   //  f_cross = gsl_spline_alloc(gsl_interp_akima,size_a);
   //  gsl_spline_init(f_cross,x_a,y_a,size_a);
   
-  int num_points = 4e3;
+  int num_points = 1e4;
   TGraph *imaginary = new TGraph(num_points);
   TGraph *real = new TGraph(num_points);//actually Re[e]-1
 
@@ -270,8 +257,8 @@ int main(){
   //  double density = 1.662e-3;   // [g/cm^3]
   //  double density = 1.783e-3;   // [g/cm^3]
   //  double molarmass = 39.948;   // [g/mol]
-  double density = .6668e-3;   // [g/cm^3]
-  double molarmass = 16.04246;   // [g/mol]
+  double density = 1.6617e-3;   // [g/cm^3]
+  double molarmass = 39.948;   // [g/mol]
   //
   //ASSUMPTION!!!!
   //we assume that the units of cross section, sigma, are given in cm^2
@@ -290,10 +277,13 @@ int main(){
     output<<"Re values are multiplied by 1e4 to better display the scale"<<endl;
     output<<"Energy[eV]"<<"\t"<<"Re*1e4"<<endl;
    
-    double energy_step = 2.e2/num_points;
+    double energy_max = 1000.;
+    double energy_min = 240.;
+    double energy_step = (energy_max-energy_min)/num_points;
+
     for(int i=1;i<num_points;++i){
 
-      double e = i * energy_step; //[eV] value to evaluate epsilon(e) at E in the
+      double e = energy_min + i*energy_step; //[eV] value to evaluate epsilon(e) at E in the
 
       cout<<"Energy step is "<<e<<endl;
       struct f_params alpha = {e,f_cross,atom_cm3};
@@ -308,8 +298,8 @@ int main(){
       //      F.function = &integrand;
       F.function = &integrand3;
       F.params = &alpha;
-            gsl_integration_qag (&F, .000001, 9.99e4, 0, 1e-3,1000,6,w, &result, &error); 
-	    //      //      gsl_integration_qawc (&F, .1, 1e5, e, 0 , 1e-3, 1000,w, &result, &error); 
+      gsl_integration_qag (&F, .0000001, 1e5, 0, 1e-3,1000,6,w, &result, &error); 
+      //      gsl_integration_qawc (&F, .1, 1e5, e, 0 , 1e-3, 1000,w, &result, &error); 
 
       printf ("result          = % .18f\n", result);
       printf ("exact result    = % .18f\n", expected);
@@ -361,7 +351,7 @@ int main(){
   imaginary->GetXaxis()->SetTitle("E [eV]");
   imaginary->GetXaxis()->CenterTitle();
   //  imaginary->GetXaxis()->SetRangeUser(10,20);
-    imaginary->GetXaxis()->SetRangeUser(8,1e2);
+    imaginary->GetXaxis()->SetRangeUser(8,3e2);
   imaginary->Draw();
  
   c1->SetLogx();
@@ -370,8 +360,8 @@ int main(){
  
   TCanvas *c2 = new TCanvas(1);
   c2->cd();
-   real->GetXaxis()->SetRangeUser(8,100);
-   real->GetYaxis()->SetRangeUser(-.0009,.0019);
+  real->GetXaxis()->SetRangeUser(0,100);
+  //  real->GetYaxis()->SetRangeUser(-3.5e-6,6e-6);
   real->SetTitle("#delta#[]{E} = Re[#epsilon#(){E}-1]");
   real->GetYaxis()->SetTitle("#delta[E]*10^{4}");
   real->GetYaxis()->CenterTitle();

@@ -1,5 +1,4 @@
 #include <gsl/gsl_integration.h>
-//#include <gsl/gsl_erron.h>
 #include <gsl/gsl_spline.h>
 #include <iostream>
 #include <fstream>

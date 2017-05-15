@@ -1,5 +1,4 @@
 #include <gsl/gsl_integration.h>
-//#include <gsl/gsl_erron.h>
 #include <gsl/gsl_spline.h>
 #include <iostream>
 #include <fstream>
@@ -179,7 +178,8 @@ int main(){
   //  SetTable(f_cross,x,y,"./argon_west.dat");
     //    SetPhotoCross("./argon_west.dat");
   //  SetPhotoCross("blum_rold_argon_photo.dat");
-  SetPhotoCross("./ch4.dat");
+  //  SetPhotoCross("./ch4.dat");
+    SetPhotoCross("./argon_10_500_Sakamoto.dat");
 
 
   double *x_a = x.data();
@@ -190,8 +190,8 @@ int main(){
   //  gsl_spline_init(f_cross,x_a,y_a,size_a);
 
   double units_cross = 1e-18;  // [cm^2]
-  double density = .668e-3;   // [g/cm^3]
-  double molarmass = 16.04246;   // [g/mol]
+  double density = 1.6617e-3;   // [g/cm^3]
+  double molarmass = 39.948;   // [g/mol]
   //ASSUMPTION!!!!
   //we assume that the units of cross section, sigma, are given in cm^2
   //units of cross seciton read in are not SI units
@@ -205,12 +205,17 @@ int main(){
   struct f_params alpha = {e,f_cross,atom_cm3};
   void *g = &alpha;
 
-  int num_int_points = 1e3;
+  int num_int_points = 1e4;
+  double e_int_max = 1000;
+  double e_int_min = 1;
+  double e_int_step = (e_int_max - e_int_min)/num_int_points;
+  
   int j_integral = 1e6;
-
   double e_max = 9.9e4;
   double e_min = 1.;
   double h = (e_max - e_min)/j_integral;
+  
+
   
   TGraph real = TGraph(num_int_points);
 
@@ -220,6 +225,7 @@ int main(){
     {
       if(i%1000==0)cout<<i<<endl;
       double sum = 0;
+      //      double e_i = e_min + i*h;
       double e_i = e_min + i*h;
       //      cout<<"Energy at "<<e_i<<endl;
       for(int j = 0;j < j_integral;++j)
@@ -260,7 +266,8 @@ int main(){
   TCanvas *c1 = new TCanvas("c1","c1",1);
   //  c1->SetLogx();
   //  c1->SetLogy();
-  real.GetXaxis()->SetRangeUser(8,100);
+  real.GetXaxis()->SetRangeUser(0,1000);
+  real.GetYaxis()->SetRangeUser(-3.5e-6,6e-6);
   real.Draw();
   c1->SaveAs("real_maclaurins.png");
 
