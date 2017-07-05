@@ -34,6 +34,42 @@ void Dielectric::SetPhotoCross (const std::string& filename) {
   return;
 }
 
+void Dielectric::GetRealDielectric(double npoints, double x1=0, double x2=1.e3 ){
+  double energy_step = (x2-x1)/npoints;
+  for(int iEnergy = 1; iEnergy <= npoints; ++iEnergy){
+    energy_p = energy_step*iEnergy + x1;
+
+    //    struct f_params alpha = {e,f_cross,atom_cm3};
+      
+      double result, error;
+      double expected = .001;
+
+      gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+
+      gsl_function_pp Fp( std::bind(&Dielectric::integrand, &(*this),  std::placeholders::_1) );
+      gsl_function *F = static_cast<gsl_function*>(&Fp); 
+      //      gsl_function F;
+      //      F.function = &F;
+      //      F.params = &alpha;
+      gsl_integration_qag (F, 0, 1e5, 1e-10, 1e-3,1000,6,w, &result, &error); 
+      //      gsl_integration_qawc (&F, .1, 1e5, e, 0 , 1e-3, 1000,w, &result, &error); 
+
+      //      printf ("result          = % .18f\n", result);
+      //      printf ("exact result    = % .18f\n", expected);
+      //      printf ("estimated error = % .18f\n", error);
+      //      printf ("actual error    = % .18f\n", result - expected);
+      //      printf ("intervals       = %zu\n", w->size);
+
+      gsl_integration_workspace_free (w);
+
+
+    real_energy.push_back(energy_p);
+    real_value.push_back(result);
+  }
+  set_real = true;
+
+  return;
+}
 
 void Dielectric::GetImgDielectric( double npoints, double x1=0, double x2=1.e3 ){
   double energy_step = (x2-x1)/npoints;
@@ -47,6 +83,27 @@ void Dielectric::GetImgDielectric( double npoints, double x1=0, double x2=1.e3 )
   set_img = true;
 
   return;
+}
+
+double Dielectric::integrand(double x) {
+  //def of QAWC integration in gsl library is
+  //I = \int_a^b dx f(x) / (x - c)
+  //we want to integrate I = \int_(0,infinity) dE' f(E') / (E'^2 - E^2)
+  //which can also be simplified as f(E')/(E'-E)*(E'+E)
+  //since we are integrating from 0 to infinity in E'
+  //we can put f(E')/(E'+E)=f"(E')
+  //thus the new integral is I = dE' f"(E')/(E'-E)
+  //which is the same as the gsl format
+  //with the singularity at (E'-E)
+
+  //  struct f_params * params = (struct f_params *)p;
+  double e = energy_p;
+  
+  double f = (x*im_epsilon(x)-e*im_epsilon(e));
+  f = f/(pow(x,2)-pow(e,2));
+  f = f*(2/3.1415);
+    
+  return f;
 }
 
 double Dielectric::im_epsilon(double x) {
@@ -73,6 +130,7 @@ double Dielectric::photo_cross_interp(double x) {
  
   return f;
 }
+
 
 TGraph * Dielectric::DrawPhotoCross(int npoints, double x1=0, double x2=1.e3){
   double energy_step = (x2-x1)/npoints;
@@ -110,3 +168,27 @@ for(int iImg = 0 ; iImg < img_size; ++iImg)
   return imaginary;
   
 }
+
+
+TGraph * Dielectric::DrawReal(){
+  int npoints = img_energy.size();
+  TGraph * real = new TGraph(npoints);
+
+  //A couple of checks 
+  if(real_energy.size() != real_value.size()){
+    cout << "ERROR energy table and value table of the Real componet arrays are not equal. Please check the file you are uploading as your table" <<endl;
+    set_real = false;
+}
+  if( set_real == false ){
+    cout<<"Real values were not calculated or the tables were not set. Please use GetImgDielectric(double npoints) to calculate or set using ..."<<endl;
+      return real;
+  }
+
+  int real_size = real_energy.size();
+for(int iRe = 0 ; iRe < real_size; ++iRe)
+  real -> SetPoint(iRe,real_energy.at(iRe),real_value.at(iRe));
+
+  return real;
+  
+}
+
