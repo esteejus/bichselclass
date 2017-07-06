@@ -34,46 +34,51 @@ void Dielectric::SetPhotoCross (const std::string& filename) {
   return;
 }
 
+void Dielectric::SetReEnergyVec(std::vector<double> vec){
+	real_energy.clear();
+	real_energy = vec;
+	cout<<"Real componet energy values overwritten"<<endl;
+
+    return;
+  }
+
+void Dielectric::SetReValueVec(std::vector<double> vec){
+	real_value.clear();
+	real_value = vec;
+	cout<<"Real componet values overwritten"<<endl;
+
+    return;
+  }
+
+
 void Dielectric::GetRealDielectric(double npoints, double x1=0, double x2=1.e3 ){
+  real_energy.clear();
+  real_value.clear();
   double energy_step = (x2-x1)/npoints;
+  //Wrapper for the member function
+  gsl_function_pp Fp( std::bind(&Dielectric::integrand, &(*this),  std::placeholders::_1) );
+  gsl_function *F = static_cast<gsl_function*>(&Fp); 
+  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+  
   for(int iEnergy = 1; iEnergy <= npoints; ++iEnergy){
+    
     energy_p = energy_step*iEnergy + x1;
-
-    //    struct f_params alpha = {e,f_cross,atom_cm3};
-      
-      double result, error;
-      double expected = .001;
-
-      gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-
-      gsl_function_pp Fp( std::bind(&Dielectric::integrand, &(*this),  std::placeholders::_1) );
-      gsl_function *F = static_cast<gsl_function*>(&Fp); 
-      //      gsl_function F;
-      //      F.function = &F;
-      //      F.params = &alpha;
-      gsl_integration_qag (F, 0, 1e5, 1e-10, 1e-3,1000,6,w, &result, &error); 
-      //      gsl_integration_qawc (&F, .1, 1e5, e, 0 , 1e-3, 1000,w, &result, &error); 
-
-      //      printf ("result          = % .18f\n", result);
-      //      printf ("exact result    = % .18f\n", expected);
-      //      printf ("estimated error = % .18f\n", error);
-      //      printf ("actual error    = % .18f\n", result - expected);
-      //      printf ("intervals       = %zu\n", w->size);
-
-      gsl_integration_workspace_free (w);
-
-
+    double result, error;
+    gsl_integration_qag (F, 0, 1e5, 1e-10, 1e-3,1000,6,w, &result, &error); 
+    //      gsl_integration_qawc (&F, .1, 1e5, e, 0 , 1e-3, 1000,w, &result, &error); 
     real_energy.push_back(energy_p);
     real_value.push_back(result);
   }
+  gsl_integration_workspace_free (w);
   set_real = true;
 
   return;
 }
 
 void Dielectric::GetImgDielectric( double npoints, double x1=0, double x2=1.e3 ){
+  img_energy.clear();
+  img_value.clear();
   double energy_step = (x2-x1)/npoints;
-
   for(int iEnergy = 1; iEnergy <= npoints; ++iEnergy){
     double energy = energy_step*iEnergy + x1;
     double value = im_epsilon(energy);
@@ -83,6 +88,80 @@ void Dielectric::GetImgDielectric( double npoints, double x1=0, double x2=1.e3 )
   set_img = true;
 
   return;
+}
+
+Dielectric Dielectric::MixGas(Dielectric &d1, Dielectric &d2, double d1_f, double d2_f){
+
+  double d3_density = d1.GetDensity()*d1_f + d2.GetDensity()*d2_f;
+  double d3_molarmass = d1.GetMolMass()*d1_f + d2.GetMolMass()*d2_f;//CHECK THISSSSSSSSSSSSSSSSSSSSSSSS
+  Dielectric d3(d3_density,d3_molarmass);
+  std::vector<double> d3real_energy, d3real_value, d3img_energy, d3img_value;
+  gsl_interp_accel *acc1 = gsl_interp_accel_alloc();
+  gsl_interp_accel *acc2 = gsl_interp_accel_alloc();
+  if(d1.GetReFlag() == true && d2.GetReFlag() == true)
+    {
+
+      vector<double> d1_real_energy = d1.GetReEnergyVec();
+      vector<double> d2_real_energy = d2.GetReEnergyVec();
+      vector<double> d1_real_value = d1.GetReValueVec();
+      vector<double> d2_real_value = d2.GetReValueVec();
+
+      
+      double d1_min = d1_real_energy.front();
+      double d2_min = d2_real_energy.front();
+      double d1_max = d1_real_energy.back();
+      double d2_max = d2_real_energy.back();
+
+      double global_min = std::max(d1_min,d2_min);//we want maximum of the two mins to get overlap
+      double global_max = std::min(d1_max,d2_max);
+
+      //Setting interpolators
+      int size_d1 = d1_real_energy.size();
+      gsl_spline *real_table_d1 = gsl_spline_alloc(gsl_interp_akima,size_d1);
+      gsl_spline_init(real_table_d1,d1_real_energy.data(),d1.real_value.data(),size_d1);
+
+      int size_d2 = d2_real_energy.size();
+      gsl_spline *real_table_d2 = gsl_spline_alloc(gsl_interp_akima,size_d2);
+      gsl_spline_init(real_table_d2,d2_real_energy.data(),d2.real_value.data(),size_d2);
+
+      int npoints = std::max(size_d1,size_d2);
+      double energy_step = (global_max-global_min)/npoints;
+
+      //Summing the interpolated points of each gas together
+      for(int iEnergy = 1; iEnergy < npoints; ++iEnergy)
+	{
+	  double energy = energy_step*iEnergy + global_min;
+	  double real_d1 = gsl_spline_eval(real_table_d1,energy,acc1);
+	  double real_d2 = gsl_spline_eval(real_table_d2,energy,acc2);
+	  double real_mix = real_d1*d1_f + real_d2*d2_f;
+	  d3real_energy.push_back(energy);
+	  d3real_value.push_back(real_mix);
+	}
+      d3.SetReEnergyVec(d3real_energy);
+      d3.SetReValueVec(d3real_value);
+      d3.SetReFlag(true);
+      cout << "Real componet of mixed gas set"<<endl;
+    }
+  else
+    cout<<"WARNING::Could not set the mixed gas imaginary values. Check to make sure all gas componets imaginary values are calculated or set"<<endl;
+  
+  if(d1.GetImgFlag() == true && d2.GetImgFlag() == true)
+    {
+
+      cout << "Imaginary componet of mixed gas set"<<endl;
+    }
+  else
+    cout<<"WARNING::Could not set the mixed gas real values. Check to make sure all gas componets real values are calculated or set"<<endl;
+
+  if(d1.GetTableFlag() == true && d2.GetTableFlag() == true)
+    {
+
+      cout << "Photocross section of mixed gas set"<<endl;
+    }
+  else
+    cout<<"WARNING::Could not set the mixed gas photocross section values. Check to make sure all gas componets photo crossection tables are set"<<endl;
+
+  return d3;
 }
 
 double Dielectric::integrand(double x) {
@@ -116,7 +195,18 @@ double Dielectric::im_epsilon(double x) {
   return  (coeff*photo_cross_interp(x)/x) ;
 }
 
+double Dielectric::real_interp(double x){
+  //  gsl_interp_accel *acc = gsl_interp_accel_alloc();
+  int size_a = real_energy.size();
+  gsl_spline *real_table = gsl_spline_alloc(gsl_interp_akima,size_a);
+  gsl_spline_init(real_table,real_energy.data(),real_value.data(),size_a);
+  double f = gsl_spline_eval(real_table,x,acc);
+
+  return f;
+
+}
 double Dielectric::photo_cross_interp(double x) {
+  //  gsl_interp_accel *acc = gsl_interp_accel_alloc();
   double f=0.;//function value
   if ( set_table == false )
     {

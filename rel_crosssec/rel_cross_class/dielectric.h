@@ -35,7 +35,7 @@ class Dielectric {
  protected:
   gsl_interp_accel *acc = gsl_interp_accel_alloc();
   gsl_spline *photo_cross_table;
-
+    
   double energy_p = 0;
   double emax, emin;
   double avogadro    =  6.022e23;
@@ -56,16 +56,44 @@ class Dielectric {
  public:
  Dielectric( double d_density, double d_molarmass) : density(d_density), molarmass(d_molarmass), atom_cm3( (d_density/d_molarmass) * (avogadro*units_cross) ){}
   
+  //  friend Dielectric operator+(const Dielectric &d1, const Dielectric &d2);
+
   void SetPhotoCross ( const std::string &);
   void SetDensity(double den){density = den;}
   void SetMolMass(double mm){molarmass = mm;}
 
+  double GetDensity(){ return density;}
+  double GetMolMass(){ return molarmass;}
+  double GetAtomcm3(){ return atom_cm3;}//not quite atom_cm3 see the scale factor CHANGE????!!!
+  
   void GetImgDielectric(double,double,double);
   void GetRealDielectric(double,double,double);
+
+  void SetReEnergyVec(std::vector<double>);
+  void SetReValueVec(std::vector<double>);
+
+  bool GetReFlag(){ return set_real;}
+  bool GetImgFlag(){ return set_img;}
+  bool GetTableFlag(){ return set_table;}
+
+  void SetReFlag(bool flag){ set_real = flag; }
+  void SetImgFlag(bool flag){ set_img = flag; }
+  void SetTableFlag(bool flag){ set_table = flag; }
+  
+  std::vector<double> GetReEnergyVec(){ return real_energy;}
+  std::vector<double> GetReValueVec(){ return real_value;}
+
+  //  void SetReEnergyVec(std::vector<double>);
+  //  void SetReValueVec(std::vector<double>);
+
+  Dielectric MixGas(Dielectric &, Dielectric &, double, double);
   
   double im_epsilon(double);
   double photo_cross_interp(double);
   double integrand(double);
+
+  double real_interp(double);
+  
   //  double dipole_oscill(double, void *);
 
   TGraph * DrawPhotoCross(int,double, double);
