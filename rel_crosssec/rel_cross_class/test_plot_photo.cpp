@@ -4,7 +4,7 @@ using namespace std;
 
 int main()
 {
-  Dielectric d1{1.66e-3,38.};
+  Dielectric d1{1.66e-3,38.,18};
   d1.SetPhotoCross("../argon_10_500_Sakamoto.dat");
   d1.GetImgDielectric(1e4,0,1.e3);
   d1.GetRealDielectric(1e4,0,1.e3);
@@ -19,6 +19,10 @@ int main()
   d2.GetImgDielectric(1e4,0,1.e3);
   d2.GetRealDielectric(1e4,0,1.e3);
 
+  for(int i =0;i<1e5;i++)
+    d1.InterpolateReal(10.889);
+  
+    /*
   TGraph *photo_ch4 = d2.DrawPhotoCross(1e5,0,1.e4);
 
 
@@ -68,6 +72,6 @@ TGraph *ch4_img = d2.DrawImaginary();
   mixgas -> GetYaxis() -> SetRangeUser(-.0005,.0005);
   mixgas -> Draw();
   c7 -> SaveAs("mixgas_real.png");
-
+  */
   return 0;
 }
