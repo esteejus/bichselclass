@@ -102,13 +102,15 @@ class Dielectric {
   double integrand(double);
   double GetCrossSection(double,double,double);  
   double GetMoment(int);
+  double GetRuthMoment(int);
+  double GetRutherford(double);
   //  double dipole_oscill(double, void *);
 
   TGraph * DrawPhotoCross(int,double, double);
   TGraph * DrawImaginary();
   TGraph * DrawReal();
-  TGraph * DrawCrossSection();
-
+  TGraph * DrawCrossSection(bool);
+  TGraph * DrawRutherford(int,double,double,bool);
 
 };
 #endif  

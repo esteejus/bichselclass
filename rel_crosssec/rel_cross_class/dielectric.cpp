@@ -51,6 +51,7 @@ void Dielectric::SetReValueVec(std::vector<double> vec){
   }
 
 double Dielectric::GetMoment(int mom){
+  int org_mom = moment;
   moment = mom;
   double result, error;
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
@@ -59,8 +60,24 @@ double Dielectric::GetMoment(int mom){
   gsl_function *F = static_cast<gsl_function*>(&Fp); 
   gsl_integration_qags (F, 1, 1e3, 0, 1e-3, 1000,w, &result, &error);    
   gsl_integration_workspace_free (w);
+  moment = org_mom;
   
   return ( atom_cm3 * z * result );
+}
+
+double Dielectric::GetRuthMoment(int mom){
+  int org_mom = moment;
+  moment = mom;
+  double result, error;
+  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+  //Wrapper for the member function
+  gsl_function_pp Fp( std::bind(&Dielectric::GetRutherford, &(*this),  std::placeholders::_1) );
+  gsl_function *F = static_cast<gsl_function*>(&Fp); 
+  gsl_integration_qags (F, 9, 1e4, 0, 1e-3, 1000,w, &result, &error);    
+  gsl_integration_workspace_free (w);
+  moment = org_mom;
+  
+  return (atom_cm3 * z * result);
 }
 
 double Dielectric::GetCrossSection(double x, double b, double intgrl){
@@ -80,6 +97,7 @@ double Dielectric::GetCrossSection(double x, double b, double intgrl){
   double x_t          = (1-re_v*pow(b,2));// theta for phase
   //theta defined to be theta = atan2(y_t,x_t)
   double mag_eps      = pow(re_v,2)+pow(im_v,2);//actually magnitude squared
+  double n_e          = atom_cm3 * z;//electron density
   //=============
   //first term
   //=============
@@ -96,6 +114,10 @@ double Dielectric::GetCrossSection(double x, double b, double intgrl){
   //Fourth term
   //======
   //f += (pow(b,2)-(re_v/mag_eps))*atan2(y_t,x_t)/(atom_cm3*hbar_c);
+  f += (pow(b,2)-(re_v/mag_eps))*atan(theta)/(atom_cm3 * z * hbar_c);
+  //  cout<<"tan "<<atan(theta)<<endl;
+  //  cout<<"real "<<re_v<<endl;
+  //  cout<<"first "<<(pow(b,2)-(re_v/mag_eps))<<endl;
     //cout<<"atom_cm3"<<atom_cm3<<endl;
     //  cout<<"f is "<<f<<endl;
   //=====
@@ -353,7 +375,7 @@ double Dielectric::photo_cross_interp(double x) {
  if( x>=emin && x<=emax ) f =  gsl_spline_eval(photo_cross_table,x,acc);
  else f = 0;
  
-  return f;
+ return (f*units_cross);
 }
 
 
@@ -417,13 +439,49 @@ for(int iRe = 0 ; iRe < real_size; ++iRe)
   
 }
 
-TGraph * Dielectric::DrawCrossSection(){
+TGraph * Dielectric::DrawCrossSection(bool mbarn){
   int npoints = relcross_energy.size();
   TGraph * cross = new TGraph(npoints);
 
 for(int iCross = 0 ; iCross < npoints; ++iCross)
-  cross -> SetPoint(iCross,relcross_energy.at(iCross),relcross_value.at(iCross));
+  {
+    double value = relcross_value.at(iCross);
+    if(mbarn == true)
+      value *= 1e18;//show in Mb units
+
+    cross -> SetPoint(iCross,relcross_energy.at(iCross),value);
+  }
+
 
   return cross;
   
 }
+
+double Dielectric::GetRutherford(double energy){
+  double bgamma = 3.6;
+  double coeff = 2.5496e-19;//ev*cm^ 2
+  //  double coeff = 1.5354e5;//ev*cm^ 2
+  double beta = bgamma/sqrt(1+pow(bgamma,2));
+  double emax = 2*m_elec*pow(bgamma,2);
+  double value = coeff*(1-(pow(beta,2)*energy/emax))/pow(beta*energy,2);
+  value *= pow(energy,moment);
+
+  return value;
+}
+
+TGraph * Dielectric::DrawRutherford( int npoints, double x1, double x2,bool mbarn){
+  double energy_step = (x2-x1)/npoints;
+  TGraph * ruth = new TGraph(npoints);
+  for(int iEnergy = 0 ; iEnergy < npoints; ++iEnergy)
+    {
+      double energy = energy_step*iEnergy + x1;
+      double value = GetRutherford(energy);
+      if(mbarn == true)
+	value *= 1e18;//show in Mb units
+
+      ruth -> SetPoint(iEnergy,energy,value);
+    }
+  
+  return ruth;
+}
+
