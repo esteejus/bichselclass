@@ -4,59 +4,92 @@ using namespace std;
 
 int main()
 {
-  Dielectric d1{1.66e-3,38.,18};
-  d1.SetPhotoCross("../argon_10_500_Sakamoto.dat");
-  //  d1.GetImgDielectric(1e4,0,1.e3);
-  //  d1.GetRealDielectric(1e4,0,1.e3);
+  Dielectric argon{1.66e-3,38.,18,"argon"};
+  cout<<"BETHE BLOCH"<<  argon.GetBetheBloch(3.6)<<endl;
+  cout<<"BETHE BLOCH"<<  argon.GetBetheBloch(.36)<<endl;
+  argon.SetPhotoCross("../argon_10_500_Sakamoto.dat");
+  argon.GetImgDielectric(1e4,0,1.e3);
+  argon.GetRealDielectric(1e3,0,1.e3);
+  argon.WriteToFile("real");
+  argon.WriteToFile("img");
 
-  //  d1.GetRelCrossSection(3.6,1e4,0,1e3);
+    
+  //    argon.GetRelCrossSection(3.6,1e4,0,1e3);
 
-  Dielectric d2{.6669e-3,16.043,10};
-  d2.SetPhotoCross("../ch4.dat");
-  //  d2.GetImgDielectric(1e4,0,1.e3);
-  //  d2.GetRealDielectric(1e4,0,1.e3);
+  Dielectric ch4{.6669e-3,16.043,10,"ch4"};
+  ch4.SetPhotoCross("../ch4.dat");
+  ch4.GetImgDielectric(1e4,0,1.e3);
+  ch4.GetRealDielectric(1e3,0,1.e3);
+  ch4.WriteToFile("real");
+  ch4.WriteToFile("img");
 
-  Dielectric d3 = d1.MixGas(d1,d2,.9,.1,1e5,0,1e4);
-  //  d3.GetImgDielectric(1e4,0,1.e3);
-  //  d3.GetRealDielectric(1e4,0,1.e3);
-  //  cout<<"z "<<d3.GetZ()<<" "<<d3.GetMolMass()<<" "<<d3.GetAtomcm3()<<endl;
-
-    vector<double> energy = d3.GetEnergyVec();
-    vector<double> value = d3.GetPhotoCrossVec();
-
-    cout<<"size is "<<  energy.size()<<endl;
-    //    for(int i =0;i<energy.size();i++)
-      //    cout<<energy.at(i)<<" "<<value.at(i)<<endl;
-
+  Dielectric p10 = argon.MixGas(argon,ch4,.9,.1);
+  p10.GetImgDielectric(1e4,0,1.e3);
+  p10.GetRealDielectric(1e3,0,1.e3);
+  p10.WriteToFile("real");
+  p10.WriteToFile("img");
+  p10.WriteToFile("photocross");
   
-    TGraph *photo = d3.DrawPhotoCross(1e4,0,1.e3);
-    //    TGraph *photo = d1.DrawPhotoCross(1e5,0,1.e4);
-  /*
-  TGraph *ar_img = d1.DrawImaginary();
-  TGraph *ar_real = d1.DrawReal();
-  TGraph *cross = d1.DrawCrossSection(true);
-  TGraph *ruth = d1.DrawRutherford(1e2,10,500,true);
+  p10.GetRelCrossSection(3.6,1e4,0,1e3);
+  cout<<"Moment 0"<<p10.GetMoment(0)<<endl;;
+  cout<<"Moment 0"<<p10.GetMoment(1)<<endl;;
+  
+  TGraph *photo_p10   = p10.DrawPhotoCross(1e5,0,1.e4);
+  TGraph *photo_argon = argon.DrawPhotoCross(1e5,0,1.e4);
+  TGraph *photo_ch4   = ch4.DrawPhotoCross(1e5,0,1.e4);
+  
 
-  TGraph *mix_img = d3.DrawImaginary();
-  */
+  TGraph *img_p10   = p10.DrawImaginary();
+  TGraph *img_argon = argon.DrawImaginary();
+  TGraph *img_ch4   = ch4.DrawImaginary();
+
+  TGraph *real_p10   = p10.DrawReal();
+  TGraph *real_argon = argon.DrawReal();
+  TGraph *real_ch4   = ch4.DrawReal();
+
+  //  TGraph *cross = argon.DrawCrossSection(true);
+  //  TGraph *ruth = argon.DrawRutherford(1e2,10,500,true);
+
   TCanvas *c1 = new TCanvas("c1","c1",1);
   c1 -> SetLogy();
   c1 -> SetLogx();
-  photo -> Draw();
-  c1 -> SaveAs("testplotcross.png");
-  /*
+  photo_p10   -> SetLineColor(1);
+  photo_argon -> SetLineColor(2);
+  photo_ch4   -> SetLineColor(4);
+
+  photo_p10   -> Draw("ALO");
+  photo_argon -> Draw("LO");
+  photo_ch4   -> Draw("LO");
+  c1 -> SaveAs("allcross_sections.png");
+  
+
   TCanvas *c3 = new TCanvas("c3","c3",1);
   c3->SetLogy();
   c3->SetLogx();
-  ar_img -> Draw();
-  c3 -> SaveAs("ar_img.png");
+
+  img_p10   -> SetLineColor(1);
+  img_argon -> SetLineColor(2);
+  img_ch4   -> SetLineColor(4);
+
+  img_p10   -> Draw("ALO");
+  img_argon -> Draw("LO");
+  img_ch4   -> Draw("LO");
+
+  c3 -> SaveAs("all_img.png");
 
   TCanvas *c5 = new TCanvas("c5","c5",1);
   c5 -> SetLogx();
-  ar_real -> Draw();
-  c5 -> SaveAs("ar_real.png");
+    real_p10   -> SetLineColor(1);
+  real_argon -> SetLineColor(2);
+  real_ch4   -> SetLineColor(4);
 
-  TCanvas *c6 = new TCanvas("c6","c6",1);
+  real_p10   -> Draw("ALO");
+  //  real_argon -> GetYaxis() -> SetRangeUser(-.0005,.0016);
+  real_argon -> Draw("LO");
+  real_ch4   -> Draw("LO");
+  c5 -> SaveAs("all_real.png");
+
+  /*  TCanvas *c6 = new TCanvas("c6","c6",1);
   c6 -> SetLogx();
   c6 -> SetLogy();
   //  ruth -> GetYaxis() -> SetRangeUser(1e-6,2);

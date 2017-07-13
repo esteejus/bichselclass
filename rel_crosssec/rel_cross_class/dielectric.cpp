@@ -34,6 +34,57 @@ void Dielectric::SetPhotoCross (const std::string& filename) {
   return;
 }
 
+bool Dielectric::SetRealTable (const std::string& filename) {
+  ifstream file (filename.c_str());
+  double d_value=0,d_energy=0;
+  std::string index,line;
+
+  if (file.is_open())
+    {
+      while(getline (file,line) ){
+	std::istringstream in(line);
+	in>>d_energy;
+	in>>d_value;
+	real_energy.push_back(d_energy);
+	real_value.push_back(d_value);
+      }
+    }
+  else
+    {
+      std::cout << "Unable to open real table file" << std::endl;
+      return false;      
+    }
+  set_real = true;
+  cout<<"Read in real values"<<endl;
+
+  return true;;
+}
+
+bool Dielectric::SetImgTable (const std::string& filename) {
+  ifstream file (filename.c_str());
+  double d_value=0,d_energy=0;
+  std::string index,line;
+
+  if (file.is_open())
+    {
+      while(getline (file,line) ){
+	std::istringstream in(line);
+	in>>d_energy;
+	in>>d_value;
+	img_energy.push_back(d_energy);
+	img_value.push_back(d_value);
+      }
+    }
+  else
+    {
+      std::cout << "Unable to open imaginary table file" << std::endl;
+      return false;      
+    }
+  set_img = true;
+  cout<<"Read in imaginary values"<<endl;  
+  return true;;
+}
+
 void Dielectric::SetPhotoEnergyVec(std::vector<double> vec){
 	photoenergy.clear();
 	photoenergy = vec;
@@ -58,7 +109,7 @@ double Dielectric::GetMoment(int mom){
   //Wrapper for the member function
   gsl_function_pp Fp( std::bind(&Dielectric::InterpolateRelCrossSect, &(*this),  std::placeholders::_1) );
   gsl_function *F = static_cast<gsl_function*>(&Fp); 
-  gsl_integration_qags (F, 1, 1e3, 0, 1e-3, 1000,w, &result, &error);    
+  gsl_integration_qags (F, 1, 9.9e3, 0, 1e-3, 1000,w, &result, &error);    
   gsl_integration_workspace_free (w);
   moment = org_mom;
   
@@ -140,7 +191,6 @@ void Dielectric::GetRelCrossSection(double b_gamma,int npoints, double x1, doubl
   gsl_function_pp Fp( std::bind(&Dielectric::photo_cross_interp, &(*this),  std::placeholders::_1) );
   gsl_function *F = static_cast<gsl_function*>(&Fp); 
   //  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-
   for(int iEnergy = 1; iEnergy <= npoints; ++iEnergy){
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
     double energy = energy_step*iEnergy + x1;
@@ -148,9 +198,9 @@ void Dielectric::GetRelCrossSection(double b_gamma,int npoints, double x1, doubl
     gsl_integration_qags (F, 0, energy, 0, 1e-3, 1000,w, &result, &error);    
     //Find the cross section
     double section = GetCrossSection(energy,beta,result);
-
     relcross_energy.push_back(energy);
     relcross_value.push_back(section);
+
     gsl_integration_workspace_free (w);
   }
 
@@ -158,36 +208,39 @@ void Dielectric::GetRelCrossSection(double b_gamma,int npoints, double x1, doubl
   return;
 }
 
-void Dielectric::GetRealDielectric(double npoints, double x1=0, double x2=1.e3 ){
+void Dielectric::GetRealDielectric(){
   real_energy.clear();
   real_value.clear();
-  double energy_step = (x2-x1)/npoints;
+
   //Wrapper for the member function
   gsl_function_pp Fp( std::bind(&Dielectric::integrand, &(*this),  std::placeholders::_1) );
   gsl_function *F = static_cast<gsl_function*>(&Fp); 
+  //  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+
+  int npoints = photoenergy.size();  
+  for(int iEnergy = 0; iEnergy < npoints; ++iEnergy){
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-  
-  for(int iEnergy = 1; iEnergy <= npoints; ++iEnergy){
-    
-    energy_p = energy_step*iEnergy + x1;
+    energy_p = photoenergy.at(iEnergy)+.1;//due to endpoint issues add small shift like .1
     double result, error;
     gsl_integration_qag (F, 0, 1e5, 1e-10, 1e-3,1000,6,w, &result, &error); 
-    //      gsl_integration_qawc (&F, .1, 1e5, e, 0 , 1e-3, 1000,w, &result, &error); 
     real_energy.push_back(energy_p);
     real_value.push_back(result + 1);
-  }
+    cout<<energy_p<<" "<<result<<endl;
   gsl_integration_workspace_free (w);
+  }
+  //  gsl_integration_workspace_free (w);
   set_real = true;
+  cout<<"Real dielectric calculated"<<endl;
 
   return;
 }
 
-void Dielectric::GetImgDielectric( double npoints, double x1=0, double x2=1.e3 ){
+void Dielectric::GetImgDielectric(){
   img_energy.clear();
   img_value.clear();
-  double energy_step = (x2-x1)/npoints;
-  for(int iEnergy = 1; iEnergy <= npoints; ++iEnergy){
-    double energy = energy_step*iEnergy + x1;
+  int npoints = photoenergy.size();
+  for(int iEnergy = 0; iEnergy < npoints; ++iEnergy){
+    double energy = photoenergy.at(iEnergy);
     double value = im_epsilon(energy);
     img_energy.push_back(energy);
     img_value.push_back(value);
@@ -208,8 +261,12 @@ double Dielectric::InterpolateReal(double energy){
   int size = real_energy.size();
   gsl_spline *real_table = gsl_spline_alloc(gsl_interp_akima,size);
   gsl_spline_init(real_table,real_energy.data(),real_value.data(),size);
-  double value = gsl_spline_eval(real_table,energy,acc1);
-
+  double value = 0;
+  if(energy >= real_energy.front() && energy <= real_energy.back())
+    value = gsl_spline_eval(real_table,energy,acc1);
+  else
+    value = 1;//careful. Need better criteria here. Short fix
+  
   gsl_interp_accel_free(acc1);
   gsl_spline_free(real_table);
   
@@ -227,7 +284,11 @@ double Dielectric::InterpolateImg(double energy){
   int size = img_energy.size();
   gsl_spline *img_table = gsl_spline_alloc(gsl_interp_akima,size);
   gsl_spline_init(img_table,img_energy.data(),img_value.data(),size);
-  double value = gsl_spline_eval(img_table,energy,acc1);
+  double value = 0;
+  if(energy >= img_energy.front() && energy <= img_energy.back())
+    value = gsl_spline_eval(img_table,energy,acc1);
+  else
+    value = 0;//careful. Need better criteria here. Short fix
 
   gsl_interp_accel_free(acc1);
   gsl_spline_free(img_table);
@@ -257,27 +318,38 @@ double Dielectric::InterpolateRelCrossSect(double energy){
   return value;
 }
 
-Dielectric Dielectric::MixGas(Dielectric &d1, Dielectric &d2, double d1_f, double d2_f, int npoints, double x1, double x2){
-
+//Dielectric Dielectric::MixGas(Dielectric &d1, Dielectric &d2, double d1_f, double d2_f, int npoints, double x1, double x2){
+Dielectric Dielectric::MixGas(Dielectric &d1, Dielectric &d2, double d1_f, double d2_f){
   double d3_density   = d1.GetDensity()*d1_f + d2.GetDensity()*d2_f;
   double d3_molarmass = d1.GetMolMass()*d1_f + d2.GetMolMass()*d2_f;
   double d3_z         = d1.GetZ()*d1_f + d2.GetZ()*d2_f;
-  Dielectric d3(d3_density,d3_molarmass,d3_z);
-  std::vector<double> d3_photoenergy, d3_photovalue;
+  stringstream d3_name;
+  d3_name<<d1.GetName()<<"_"<<d1_f<<d2.GetName()<<"_"<<d2_f;
+  string str = d3_name.str();
+  Dielectric d3(d3_density,d3_molarmass,d3_z,str);
+
+  cout<<d3_density<<" "<<d3_molarmass<<" "<<d3_z<<" "<<str<<endl;
+  std::vector<double> d3_photovalue;
+
+  std::vector<double> d1_energy = d1.GetEnergyVec();
+  std::vector<double> d2_energy = d2.GetEnergyVec();
+  std::vector<double> d3_photoenergy(d1_energy.size() + d2_energy.size());
+  std::vector<double>::iterator it;
+  it=std::set_union (d1_energy.begin(), d1_energy.begin()+d1_energy.size(), d2_energy.begin(), d2_energy.begin()+d2_energy.size(), d3_photoenergy.begin());
+  d3_photoenergy.resize(it-d3_photoenergy.begin());
 
   if(d1.GetTableFlag() == true && d2.GetTableFlag() == true)
     {
-      double energy_step = (x2-x1)/npoints;
+      //    double energy_step = (x2-x1)/npoints;
+      int npoints = d3_photoenergy.size();
       for(int iEnergy = 0; iEnergy < npoints; ++iEnergy)
 	{
-	  double energy = energy_step*iEnergy + x1;
-	  double d1_value = d1.photo_cross_interp(energy);
-	  double d2_value = d2.photo_cross_interp(energy);
+	  double energy = d3_photoenergy.at(iEnergy);
+	  //Divide by scale factor because photo_cross_interp accepts units of Mb
+	  double d1_value = d1.photo_cross_interp(energy)/units_cross;
+	  double d2_value = d2.photo_cross_interp(energy)/units_cross;
 
 	  double real_mix = d1_value*d1_f + d2_value*d2_f;
-	  cout<<"Energy in mix is "<<energy<<endl;
-	  cout<<"D1, d2"<<d1_value<<" "<<d2_value<<endl;
-	  d3_photoenergy.push_back(energy);
 	  d3_photovalue.push_back(real_mix);
 	}
       cout << "Photo absorbtion cross section of mixed gas set"<<endl;
@@ -291,13 +363,12 @@ Dielectric Dielectric::MixGas(Dielectric &d1, Dielectric &d2, double d1_f, doubl
   int size = d3_photoenergy.size();
   gsl_spline *photo_table = gsl_spline_alloc(gsl_interp_akima,size);
   gsl_spline_init(photo_table,d3_photoenergy.data(),d3_photovalue.data(),size);
-  //  cout<<"Testing eval"<<gsl_spline_eval(photo_table,15,acc)<<endl;
 
       gsl_interp_accel_free(acc);
       gsl_spline_free(photo_table);
 
       d3.SetTableFlag(true);
-      
+      cout<<"Done mixing gas"<<endl;
   return d3;
 }
 
@@ -344,6 +415,7 @@ double Dielectric::real_interp(double x){
   return f;
 
 }
+
 double Dielectric::photo_cross_interp(double x) {
   gsl_interp_accel *acc = gsl_interp_accel_alloc();
   int size_a = photoenergy.size();
@@ -360,17 +432,30 @@ double Dielectric::photo_cross_interp(double x) {
 
   double emin = photoenergy.front();
   double emax = photoenergy.back();
-
-  if( x>=emin && x<=emax ){ f =  gsl_spline_eval(photo_cross_table,x,acc);
-  }
-  else f = 0;
-
+  if( x>=emin && x<=emax )
+    f =  gsl_spline_eval(photo_cross_table,x,acc);
+  else
+    f = 0;
  gsl_interp_accel_free(acc);
  gsl_spline_free(photo_cross_table);
 
  return (f*units_cross);
 }
 
+
+double Dielectric::GetBetheBloch(double bgamma){
+ double beta = bgamma/sqrt(1+pow(bgamma,2));
+ double ioniz = 180;
+ double tmax = 2*m_elec*pow(bgamma,2);
+  double bb =0;
+  double coeff = .307075e6;//[eV*cm^2/g]
+  coeff *= z/(molarmass*pow(beta,2));
+  bb = (2*m_elec*pow(bgamma,2)*tmax)/pow(ioniz,2);
+  bb = .5*log(bb)-pow(beta,2);
+  bb *= coeff;
+  
+  return (bb*density/1.e3);
+}
 
 TGraph * Dielectric::DrawPhotoCross(int npoints, double x1=0, double x2=1.e3){
   double energy_step = (x2-x1)/npoints;
@@ -380,6 +465,7 @@ TGraph * Dielectric::DrawPhotoCross(int npoints, double x1=0, double x2=1.e3){
     {
       double energy = energy_step*iEnergy + x1;
       double value = photo_cross_interp(energy);
+      //      cout<<energy<<" "<<value<<endl;
       photocross -> SetPoint(iEnergy,energy,value);
     }
 
@@ -425,9 +511,10 @@ TGraph * Dielectric::DrawReal(){
   }
 
   int real_size = real_energy.size();
-for(int iRe = 0 ; iRe < real_size; ++iRe)
+  for(int iRe = 0 ; iRe < real_size; ++iRe){
   real -> SetPoint(iRe,real_energy.at(iRe),real_value.at(iRe));
-
+  cout<<real_energy.at(iRe)<<" "<<real_value.at(iRe)<<endl;
+  }
   return real;
   
 }
@@ -441,7 +528,7 @@ for(int iCross = 0 ; iCross < npoints; ++iCross)
     double value = relcross_value.at(iCross);
     if(mbarn == true)
       value *= 1e18;//show in Mb units
-
+    value*=relcross_energy.at(iCross);
     cross -> SetPoint(iCross,relcross_energy.at(iCross),value);
   }
 
@@ -478,3 +565,45 @@ TGraph * Dielectric::DrawRutherford( int npoints, double x1, double x2,bool mbar
   return ruth;
 }
 
+void Dielectric::WriteToFile(string opt){
+  ofstream output;
+
+  if(opt == "real")
+    {
+      stringstream out;
+      out<<"real_"<<name<<".dat";
+      string str = out.str();
+      output.open(str);
+      int size = real_energy.size();
+      for(int i = 0 ;i < size;++i)
+	output<<real_energy.at(i)<<"\t"<<real_value.at(i)<<endl;
+      cout<<str<<" Wrote to file"<<endl;
+    }
+  else if(opt == "img")
+    {
+      stringstream out;
+      out<<"img_"<<name<<".dat";
+      string str = out.str();
+      output.open(str);
+      int size = img_energy.size();
+      for(int i = 0 ;i < size;++i)
+	output<<img_energy.at(i)<<"\t"<<img_value.at(i)<<endl;
+      cout<<str<<" Wrote to file"<<endl;
+    }
+  else if(opt == "photocross")
+    {
+      stringstream out;
+      out<<"photocross_"<<name<<".dat";
+      string str = out.str();
+      output.open(str);
+      int size = photoenergy.size();
+      for(int i = 0 ;i < size;++i)
+	output<<photoenergy.at(i)<<"\t"<<photovalue.at(i)<<endl;
+      cout<<str<<" Wrote to file"<<endl;
+    }
+  else
+    cout<<"Enter a valid option for WriteToFile"<<endl;
+  
+
+  return;
+}
