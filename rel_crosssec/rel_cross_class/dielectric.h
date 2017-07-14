@@ -54,8 +54,9 @@ class Dielectric {
   
   bool set_table = false;
   bool set_img   = false;//if img is calculated or set through table this is TRUE
-  bool set_real   = false;//if real is calculated or set through table this is TRUE
-  
+  bool set_real  = false;//if real is calculated or set through table this is TRUE
+  bool set_rel   = false;//if relatavistic cross section is set this is TRUE 
+
  public:
  Dielectric( double d_density, double d_molarmass, double zz, string nn) : density(d_density), molarmass(d_molarmass), z(zz), name(nn){ atom_cm3 = (d_density/d_molarmass) *avogadro;}
   
@@ -78,7 +79,7 @@ class Dielectric {
   
   void GetImgDielectric();
   void GetRealDielectric();
-  void GetRelCrossSection(double,int,double,double);
+  void GetRelCrossSection(double);
 
   bool GetReFlag(){ return set_real;}
   bool GetImgFlag(){ return set_img;}

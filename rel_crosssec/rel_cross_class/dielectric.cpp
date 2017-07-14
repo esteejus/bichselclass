@@ -102,6 +102,12 @@ void Dielectric::SetPhotoValueVec(std::vector<double> vec){
   }
 
 double Dielectric::GetMoment(int mom){
+  if(set_rel == false)
+    {
+      cout<<"Relatavistic cross section not calculated"<<endl;
+      return -9999;
+      }
+
   int org_mom = moment;
   moment = mom;
   double result, error;
@@ -109,7 +115,7 @@ double Dielectric::GetMoment(int mom){
   //Wrapper for the member function
   gsl_function_pp Fp( std::bind(&Dielectric::InterpolateRelCrossSect, &(*this),  std::placeholders::_1) );
   gsl_function *F = static_cast<gsl_function*>(&Fp); 
-  gsl_integration_qags (F, 1, 9.9e3, 0, 1e-3, 1000,w, &result, &error);    
+  gsl_integration_qags (F, 0, 1e5, 0, 1e-3, 1000,w, &result, &error);    
   gsl_integration_workspace_free (w);
   moment = org_mom;
   
@@ -144,11 +150,11 @@ double Dielectric::GetCrossSection(double x, double b, double intgrl){
   double fine_struct  =  1./137;
   double coeff        = fine_struct/(pow(b,2) * 3.1415);
   double theta        = (im_v*pow(b,2))/(1-re_v*pow(b,2));// theta for phase
-  double y_t          = (im_v*pow(b,2));// theta for phase
-  double x_t          = (1-re_v*pow(b,2));// theta for phase
+  //  double y_t          = (im_v*pow(b,2));// theta for phase
+  //  double x_t          = (1-re_v*pow(b,2));// theta for phase
   //theta defined to be theta = atan2(y_t,x_t)
   double mag_eps      = pow(re_v,2)+pow(im_v,2);//actually magnitude squared
-  double n_e          = atom_cm3 * z;//electron density
+  //  double n_e          = atom_cm3 * z;//electron density
   //=============
   //first term
   //=============
@@ -166,11 +172,6 @@ double Dielectric::GetCrossSection(double x, double b, double intgrl){
   //======
   //f += (pow(b,2)-(re_v/mag_eps))*atan2(y_t,x_t)/(atom_cm3*hbar_c);
   f += (pow(b,2)-(re_v/mag_eps))*atan(theta)/(atom_cm3 * z * hbar_c);
-  //  cout<<"tan "<<atan(theta)<<endl;
-  //  cout<<"real "<<re_v<<endl;
-  //  cout<<"first "<<(pow(b,2)-(re_v/mag_eps))<<endl;
-    //cout<<"atom_cm3"<<atom_cm3<<endl;
-    //  cout<<"f is "<<f<<endl;
   //=====
   //Multiply by overall coeff alpha/beta^2/pi
   //=====
@@ -181,29 +182,28 @@ double Dielectric::GetCrossSection(double x, double b, double intgrl){
   
 }
 
-void Dielectric::GetRelCrossSection(double b_gamma,int npoints, double x1, double x2){
+void Dielectric::GetRelCrossSection(double b_gamma){
   relcross_energy.clear();
   relcross_value.clear();
 
   double beta = b_gamma/sqrt(1+pow(b_gamma,2));
-  double energy_step = (x2-x1)/npoints;
   //Wrapper for the member function
   gsl_function_pp Fp( std::bind(&Dielectric::photo_cross_interp, &(*this),  std::placeholders::_1) );
   gsl_function *F = static_cast<gsl_function*>(&Fp); 
-  //  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-  for(int iEnergy = 1; iEnergy <= npoints; ++iEnergy){
+  int npoints = photoenergy.size();
+  for(int iEnergy = 0 ; iEnergy < npoints; ++iEnergy){
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-    double energy = energy_step*iEnergy + x1;
-    double result, error;
-    gsl_integration_qags (F, 0, energy, 0, 1e-3, 1000,w, &result, &error);    
-    //Find the cross section
-    double section = GetCrossSection(energy,beta,result);
-    relcross_energy.push_back(energy);
-    relcross_value.push_back(section);
+  double energy = photoenergy.at(iEnergy);
+  double result, error;
+  gsl_integration_qags (F, 0, energy, 0, 1e-3, 1000,w, &result, &error);    
+  //Find the cross section
+  double section = GetCrossSection(energy,beta,result);
+  relcross_energy.push_back(energy);
+  relcross_value.push_back(section);
 
-    gsl_integration_workspace_free (w);
+  gsl_integration_workspace_free (w);
   }
-
+  set_rel = true;
 
   return;
 }
@@ -225,7 +225,6 @@ void Dielectric::GetRealDielectric(){
     gsl_integration_qag (F, 0, 1e5, 1e-10, 1e-3,1000,6,w, &result, &error); 
     real_energy.push_back(energy_p);
     real_value.push_back(result + 1);
-    cout<<energy_p<<" "<<result<<endl;
   gsl_integration_workspace_free (w);
   }
   //  gsl_integration_workspace_free (w);
@@ -308,8 +307,12 @@ double Dielectric::InterpolateRelCrossSect(double energy){
   int size = relcross_energy.size();
   gsl_spline *cross_table = gsl_spline_alloc(gsl_interp_akima,size);
   gsl_spline_init(cross_table,relcross_energy.data(),relcross_value.data(),size);
-  double value = gsl_spline_eval(cross_table,energy,acc1);
-
+  double value = 0;
+  if(energy >= relcross_energy.front() && energy <= relcross_energy.back())
+    value = gsl_spline_eval(cross_table,energy,acc1);
+  else
+    value = 0;
+  
   value *= pow(energy,moment);
   
   gsl_interp_accel_free(acc1);
@@ -528,7 +531,7 @@ for(int iCross = 0 ; iCross < npoints; ++iCross)
     double value = relcross_value.at(iCross);
     if(mbarn == true)
       value *= 1e18;//show in Mb units
-    value*=relcross_energy.at(iCross);
+    //    value*=relcross_energy.at(iCross);//for displaying E*cross
     cross -> SetPoint(iCross,relcross_energy.at(iCross),value);
   }
 
