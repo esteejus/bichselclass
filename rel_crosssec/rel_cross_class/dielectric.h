@@ -111,7 +111,7 @@ class Dielectric {
   double InterpolateRelCrossSect(double);
   double integrand(double);
   double GetCrossSection(double,double,double);  
-  double GetMoment(int);
+  double GetMoment(int,double);
   double GetRuthMoment(int);
   double GetRutherford(double);
   //  double dipole_oscill(double, void *);
@@ -121,6 +121,6 @@ class Dielectric {
   TGraph * DrawReal();
   TGraph * DrawCrossSection(bool);
   TGraph * DrawRutherford(int,double,double,bool);
-
+  TGraph * DrawBichselSeg(double,double,double,double,double,double);
 };
 #endif  

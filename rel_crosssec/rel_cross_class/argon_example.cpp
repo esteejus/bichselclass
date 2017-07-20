@@ -19,21 +19,30 @@ int main()
       argon.WriteToFile("img");
     }  
 
-  argon.GetRelCrossSection(.316);
+  argon.GetRelCrossSection(3.16);
   TGraph *cross = argon.DrawCrossSection(true);
-  cout<<"Moment 0 "<<argon.GetMoment(0)<<endl;;
-  cout<<"Moment 1    "<<argon.GetMoment(1)/1e3<<endl;;
-  cout<<"BETHE BLOCH "<<  argon.GetBetheBloch(.316)<<endl;
+  cout<<"Moment 0 "<<argon.GetMoment(0,3.16)<<endl;;
+  cout<<"Moment 1    "<<argon.GetMoment(1,3.16)/1e3<<endl;;
+  cout<<"BETHE BLOCH "<<  argon.GetBetheBloch(3.16)<<endl;
   
-    //  TGraph *ruth = argon.DrawRutherford(1e2,10,500,true);
+  TGraph *bichsel = argon.DrawBichselSeg(938,2964.08,.5,1e3,0,5e3);
+  //  TGraph *ruth = argon.DrawRutherford(1e2,10,500,true);
 
+  TCanvas *c7 = new TCanvas("c7","c7",1);
+  c7 -> SetLogx();
+  bichsel -> Draw();
+  c7 -> SaveAs("bichsel_seg.png");
+  
   TCanvas *c6 = new TCanvas("c6","c6",1);
+  //  c6 -> SetLogy();
   c6 -> SetLogx();
-  c6 -> SetLogy();
-  //  ruth -> GetYaxis() -> SetRangeUser(1e-6,2);
+  // cross -> GetYaxis() -> SetRangeUser(1e-6,.08);
+  //  cross -> GetXaxis() -> SetRangeUser(8,100);
+  cross -> GetXaxis() -> SetLimits(8,100);
   //  ruth -> SetLineColor(2);
   //  ruth ->Draw("ALO");
   cross -> Draw("ALO");
+  c6 -> SetLogx();
   c6 -> SaveAs("cross_section.png");
 
   return 0;
