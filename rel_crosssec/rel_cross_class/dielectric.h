@@ -114,6 +114,7 @@ class Dielectric {
   double GetMoment(int,double);
   double GetRuthMoment(int);
   double GetRutherford(double);
+  double GetConvolution(double,int);
   //  double dipole_oscill(double, void *);
 
   TGraph * DrawPhotoCross(int,double, double);
@@ -122,5 +123,8 @@ class Dielectric {
   TGraph * DrawCrossSection(bool);
   TGraph * DrawRutherford(int,double,double,bool);
   TGraph * DrawBichselSeg(double,double,double,double,double,double);
+  TGraph * DrawConvolution(int,double,double,int,double);
+
+  
 };
 #endif  

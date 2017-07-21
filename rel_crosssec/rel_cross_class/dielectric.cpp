@@ -72,27 +72,27 @@ bool Dielectric::SetImgTable (const std::string& filename) {
 }
 
 void Dielectric::SetPhotoEnergyVec(std::vector<double> vec){
-	photoenergy.clear();
-	photoenergy = vec;
-	cout<<"Photo cross section energy values overwritten"<<endl;
+  photoenergy.clear();
+  photoenergy = vec;
+  cout<<"Photo cross section energy values overwritten"<<endl;
 
-    return;
-  }
+  return;
+}
 
 void Dielectric::SetPhotoValueVec(std::vector<double> vec){
-	photovalue.clear();
-	photovalue = vec;
-	cout<<"Photo cross section values overwritten"<<endl;
+  photovalue.clear();
+  photovalue = vec;
+  cout<<"Photo cross section values overwritten"<<endl;
 
-    return;
-  }
+  return;
+}
 
 double Dielectric::GetMoment(int mom,double bgamma){
   if(set_rel == false)
     {
       cout<<"Relatavistic cross section not calculated"<<endl;
       return -9999;
-      }
+    }
 
   int org_mom = moment;
   moment = mom;
@@ -104,7 +104,7 @@ double Dielectric::GetMoment(int mom,double bgamma){
   //Wrapper for the member function
   gsl_function_pp Fp( std::bind(&Dielectric::InterpolateRelCrossSect, &(*this),  std::placeholders::_1) );
   gsl_function *F = static_cast<gsl_function*>(&Fp); 
-  gsl_integration_qags (F, 0, 1e6, 0, 1e-3, 1000,w, &result, &error);    
+  gsl_integration_qag (F, 0, 1e6, 0, 1e-3, 1000,1,w, &result, &error);    
   gsl_integration_workspace_free (w);
   moment = org_mom;
   
@@ -119,7 +119,7 @@ double Dielectric::GetRuthMoment(int mom){
   //Wrapper for the member function
   gsl_function_pp Fp( std::bind(&Dielectric::GetRutherford, &(*this),  std::placeholders::_1) );
   gsl_function *F = static_cast<gsl_function*>(&Fp); 
-  gsl_integration_qags (F, 9, 1e4, 0, 1e-3, 1000,w, &result, &error);    
+  gsl_integration_qag (F, 9, 1e4, 0, 1e-3, 1000,1,w, &result, &error);    
   gsl_integration_workspace_free (w);
   moment = org_mom;
   
@@ -181,16 +181,16 @@ void Dielectric::GetRelCrossSection(double b_gamma){
   gsl_function *F = static_cast<gsl_function*>(&Fp); 
   int npoints = photoenergy.size();
   for(int iEnergy = 0 ; iEnergy < npoints; ++iEnergy){
-  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-  double energy = photoenergy.at(iEnergy);
-  double result, error;
-  gsl_integration_qags (F, 0, energy, 0, 1e-3, 1000,w, &result, &error);    
-  //Find the cross section
-  double section = GetCrossSection(energy,beta,result);
-  relcross_energy.push_back(energy);
-  relcross_value.push_back(section);
+    gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+    double energy = photoenergy.at(iEnergy);
+    double result, error;
+    gsl_integration_qags (F, 0, energy, 0, 1e-3, 1000,w, &result, &error);    
+    //Find the cross section
+    double section = GetCrossSection(energy,beta,result);
+    relcross_energy.push_back(energy);
+    relcross_value.push_back(section);
 
-  gsl_integration_workspace_free (w);
+    gsl_integration_workspace_free (w);
   }
   set_rel = true;
 
@@ -208,13 +208,13 @@ void Dielectric::GetRealDielectric(){
 
   int npoints = photoenergy.size();  
   for(int iEnergy = 0; iEnergy < npoints; ++iEnergy){
-  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+    gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
     energy_p = photoenergy.at(iEnergy)+.1;//due to endpoint issues add small shift like .1
     double result, error;
     gsl_integration_qag (F, 0, 1e5, 1e-10, 1e-3,1000,6,w, &result, &error); 
     real_energy.push_back(energy_p);
     real_value.push_back(result + 1);
-  gsl_integration_workspace_free (w);
+    gsl_integration_workspace_free (w);
   }
   //  gsl_integration_workspace_free (w);
   set_real = true;
@@ -356,11 +356,11 @@ Dielectric Dielectric::MixGas(Dielectric &d1, Dielectric &d2, double d1_f, doubl
   gsl_spline *photo_table = gsl_spline_alloc(gsl_interp_akima,size);
   gsl_spline_init(photo_table,d3_photoenergy.data(),d3_photovalue.data(),size);
 
-      gsl_interp_accel_free(acc);
-      gsl_spline_free(photo_table);
+  gsl_interp_accel_free(acc);
+  gsl_spline_free(photo_table);
 
-      d3.SetTableFlag(true);
-      cout<<"Done mixing gas"<<endl;
+  d3.SetTableFlag(true);
+  cout<<"Done mixing gas"<<endl;
   return d3;
 }
 
@@ -428,17 +428,17 @@ double Dielectric::photo_cross_interp(double x) {
     f =  gsl_spline_eval(photo_cross_table,x,acc);
   else
     f = 0;
- gsl_interp_accel_free(acc);
- gsl_spline_free(photo_cross_table);
+  gsl_interp_accel_free(acc);
+  gsl_spline_free(photo_cross_table);
 
- return (f*units_cross);
+  return (f*units_cross);
 }
 
 
 double Dielectric::GetBetheBloch(double bgamma){
- double beta = bgamma/sqrt(1+pow(bgamma,2));
- double ioniz = 180;
- double tmax = 2*m_elec*pow(bgamma,2);
+  double beta = bgamma/sqrt(1+pow(bgamma,2));
+  double ioniz = 180;
+  double tmax = 2*m_elec*pow(bgamma,2);
   double bb =0;
   double coeff = .307075e6;//[eV*cm^2/g]
   coeff *= z/(molarmass*pow(beta,2));
@@ -473,14 +473,14 @@ TGraph * Dielectric::DrawImaginary(){
   if(img_energy.size() != img_value.size()){
     cout << "ERROR energy table and value table of the Imaginary componet arrays are not equal. Please check the file you are uploading as your table" <<endl;
     set_img = false;
-}
+  }
   if( set_img == false ){
     cout<<"Imaginary values were not calculated or the tables were not set. Please use GetImgDielectric(double npoints) to calculate or set using ..."<<endl;
-      return imaginary;
+    return imaginary;
   }
 
   int img_size = img_energy.size();
-for(int iImg = 0 ; iImg < img_size; ++iImg)
+  for(int iImg = 0 ; iImg < img_size; ++iImg)
     imaginary -> SetPoint(iImg,img_energy.at(iImg),img_value.at(iImg));
 
   return imaginary;
@@ -496,16 +496,16 @@ TGraph * Dielectric::DrawReal(){
   if(real_energy.size() != real_value.size()){
     cout << "ERROR energy table and value table of the Real componet arrays are not equal. Please check the file you are uploading as your table" <<endl;
     set_real = false;
-}
+  }
   if( set_real == false ){
     cout<<"Real values were not calculated or the tables were not set. Please use GetImgDielectric(double npoints) to calculate or set using ..."<<endl;
-      return real;
+    return real;
   }
 
   int real_size = real_energy.size();
   for(int iRe = 0 ; iRe < real_size; ++iRe){
-  real -> SetPoint(iRe,real_energy.at(iRe),real_value.at(iRe));
-  cout<<real_energy.at(iRe)<<" "<<real_value.at(iRe)<<endl;
+    real -> SetPoint(iRe,real_energy.at(iRe),real_value.at(iRe));
+    cout<<real_energy.at(iRe)<<" "<<real_value.at(iRe)<<endl;
   }
   return real;
   
@@ -515,14 +515,14 @@ TGraph * Dielectric::DrawCrossSection(bool mbarn){
   int npoints = relcross_energy.size();
   TGraph * cross = new TGraph(npoints);
 
-for(int iCross = 0 ; iCross < npoints; ++iCross)
-  {
-    double value = relcross_value.at(iCross);
-    if(mbarn == true)
-      value *= 1e18;//show in Mb units
-    //    value*=relcross_energy.at(iCross);//for displaying E*cross
-    cross -> SetPoint(iCross,relcross_energy.at(iCross),value);
-  }
+  for(int iCross = 0 ; iCross < npoints; ++iCross)
+    {
+      double value = relcross_value.at(iCross);
+      if(mbarn == true)
+	value *= 1e18;//show in Mb units
+      //    value*=relcross_energy.at(iCross);//for displaying E*cross
+      cross -> SetPoint(iCross,relcross_energy.at(iCross),value);
+    }
 
 
   return cross;
@@ -600,109 +600,136 @@ void Dielectric::WriteToFile(string opt){
   return;
 }
 
-TGraph * Dielectric::DrawBichselSeg(double mass, double mom, double seg, double npoints, double x1, double x2){
-  cout<<"Starting Bichsel seg"<<endl;
-  relcross_energy.clear();
-  relcross_value.clear();
-  //mass in MeV/c^2
-  //segment in cm
-  double bgamma = mom/mass;
-  GetRelCrossSection(bgamma);
-  double m_0 = GetMoment(0,bgamma);
-  //  cout<<"M0 is "<<m_0<<endl;
+double Dielectric::GetConvolution(double delta,int n){
 
-  double n_0 = .001;
-  double dx = n_0/m_0;
-  //fcn is the f funciton in the Bichsel paper for calculating the dist through
-  //convolution integral
+  if(n ==1)
+    return InterpolateRelCrossSect(delta)/units_cross;
+  else
+    {
+      auto fcn = [&](double e)->double{
+	double sigma_e = InterpolateRelCrossSect(e)/units_cross;
+	double sigma_d = GetConvolution(delta - e, n-1);
+	//	if(n=3)	cout<<"value"<<sigma_e*sigma_d<<endl;
+	return sigma_e*sigma_d;};
 
-  std::vector<double> energy_vec, dist_value;
-  double result, error;
+      double error,result;
+      std::function<double(double)> F_int(fcn);
+      gsl_function_pp F1(F_int);
+      gsl_function *F= static_cast<gsl_function*>(&F1); 
+      gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+      gsl_integration_qag (F, 0, delta, 0, 1e-2, 1000,1,w, &result, &error);    
+      gsl_integration_workspace_free (w);
+      
+      return result;
+    }
 
+}
+
+TGraph * Dielectric::DrawConvolution(int npoints, double x1, double x2, int n,double scale){
+
+  TGraph *conv = new TGraph(npoints);
   double energy_step = (x2-x1)/npoints;
 
-  //initial distribution
-  for(int iEnergy = 0 ; iEnergy < npoints; ++iEnergy)
+  for(int iEnergy = 0; iEnergy < npoints; iEnergy++)
     {
-      double delta = energy_step*iEnergy + x1;
-      double f = 0;
-      double sigma = InterpolateRelCrossSect(delta)/units_cross;
-      f += (1-m_0*dx)*dx*sigma;
-      f *= 2;
+      double delta = iEnergy*energy_step + x1 ;
+      double value = GetConvolution(delta,n)*scale;
+      cout<<"n, delta "<<n<<" "<<delta<<" "<<value<<endl;
+      conv -> SetPoint(iEnergy,delta,value);
+    }
+  
+  return conv;
+}
 
-      auto fcn = [&](double g)->double {
-	double sigma     = InterpolateRelCrossSect(delta)/units_cross;
-	double sigma_d_g = InterpolateRelCrossSect(delta-g)/units_cross;
-	double f = 0;
-	f += pow(dx,2);
-	f *= sigma * sigma_d_g;
-	
-	return f;
-      };
+TGraph * Dielectric::DrawBichselSeg(double mass, double mom, double seg, double npoints, double x1, double x2){
+  cout<<"Starting Bichsel seg"<<endl;
+  double bgamma = mom/mass;
+  //mass in MeV/c^2
+  //segment in cm
+  relcross_energy.clear();
+  relcross_value.clear();
+  GetRelCrossSection(bgamma);
 
-      std::function<double(double)> F1(fcn);
-      gsl_function_pp F2(F1);
-      gsl_function *F = static_cast<gsl_function*>(&F2); 
+  double m_0 = GetMoment(0,bgamma);
+  double n_0 = .001;
+  double dx = n_0/m_0;
+  double m = seg * m_0;//m in the Poisson dist pow(m,n)
+
+  //fcn is the f funciton in the Bichsel paper for calculating the dist through
+  //convolution integral
+  double energy_step = (x2-x1)/npoints;
+  
+  std::vector<double> dist_vec, dist_value;
+  double x_t = 0;
+  for(int iEnergy = 0; iEnergy < npoints; iEnergy++)
+    {
+      double result, error;
+      double delta = iEnergy*energy_step + x1 ;
+
+      auto fcn  = [&](double g)->double{
+	double sigma_g = InterpolateRelCrossSect(g)/units_cross;
+	double sigma_dg = InterpolateRelCrossSect(delta - g)/units_cross;
+	return (sigma_g*sigma_dg*pow(dx,2));};
+
+      std::function<double(double)> F_int(fcn);
+      gsl_function_pp F1(F_int);
+      gsl_function *F= static_cast<gsl_function*>(&F1); 
       gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-      gsl_integration_qags (F, 0, delta , 0 , 1e-2, 1000,w, &result, &error);    
+      gsl_integration_qag (F, 0, delta, 0, 1e-2, 1000,1,w, &result, &error);    
+      double sigma_dg = InterpolateRelCrossSect(delta)/units_cross;
+      result += 2*(1-m_0*dx)*dx*sigma_dg;
       gsl_integration_workspace_free (w);
-
-      f += result;
-      energy_vec.push_back(delta);
-      dist_value.push_back(f);
+      dist_vec.push_back(delta);
+      dist_value.push_back(result);
       //      cout<<result<<endl;
     }
+  x_t = 2*dx;
 
-  //f(dx,delta-g)f(dx,g)dg = f(dx,g)f(dx,delta-g)dg
-
-  double x = 2*dx;
-
-  while(x <= seg)
-    {
-     
-      for(int iEnergy = 0 ; iEnergy < 100; ++iEnergy)
-	{
-	  double delta = energy_step*iEnergy + x1;
-	  auto integrand = [&](double g)->double {
-	  gsl_interp_accel *acc1 = gsl_interp_accel_alloc();
-	  int size = energy_vec.size();
-	  gsl_spline *dist_table = gsl_spline_alloc(gsl_interp_akima,size);
-	  gsl_spline_init(dist_table,energy_vec.data(),dist_value.data(),size);
-	  double f_dg = 0;
-	  double f_g  = 0;
-	  if(delta >= energy_vec.front() && delta <= energy_vec.back())
-	    {
-	      f_dg = gsl_spline_eval(dist_table,delta-g,acc1)/units_cross;
-	      f_g = gsl_spline_eval(dist_table,g,acc1)/units_cross;
-	    }
-	  gsl_interp_accel_free(acc1);
-	  gsl_spline_free(dist_table);
-	  double value = f_dg * f_g;
-
-	  return value;
-	  };
+  //  for(int i = 0 ; i< 1; i++){
+  while(x_t < seg){
+    for(int iEnergy = 0; iEnergy < npoints; iEnergy++)
+      {
+	double result = 0,error;
+	double delta = iEnergy*energy_step + x1 ;
+	gsl_interp_accel *acc1 = gsl_interp_accel_alloc();
+	int size = dist_vec.size();
+	gsl_spline *dist_table = gsl_spline_alloc(gsl_interp_akima,size);
+	gsl_spline_init(dist_table,dist_vec.data(),dist_value.data(),size);
+	
+	auto integrand = [&](double x)->double{
+	  double f_dg = 0, f_g = 0;
+	  if(x >= dist_vec.front() && x <= dist_vec.back())
+	    f_g = gsl_spline_eval(dist_table,x,acc1);
+	  else
+	    f_g = 0;
+	  if((delta-x) >= dist_vec.front() && (delta-x) <= dist_vec.back())
+	    f_dg = gsl_spline_eval(dist_table,delta - x,acc1);
+	  else
+	    f_dg = 0;
 	  
-	  std::function<double(double)> F_int(integrand);
-	  gsl_function_pp F3(F_int);
-	  gsl_function *F_2= static_cast<gsl_function*>(&F3); 
-	  
-	  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-	  gsl_integration_qags (F_2, 0, delta, 0, 1e-2, 1000,w, &result, &error);    
-	  gsl_integration_workspace_free (w);
+	  return f_dg*f_g;};
+  
+	std::function<double(double)> F1(integrand);
+	gsl_function_pp F2(F1);
+	gsl_function *F_1= static_cast<gsl_function*>(&F2); 
+	gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+	gsl_integration_qag (F_1, 0, delta, 0, 1e-2, 1000,1,w, &result, &error);    
+	cout<<"delta result "<<delta<<" "<<result<<endl;
+	dist_value.at(iEnergy)=result;
+	
+	gsl_integration_workspace_free (w);
+	gsl_interp_accel_free(acc1);
+	gsl_spline_free(dist_table);
+      }
+    x_t *= 2;
+    cout<<" x "<<x_t<<endl;
+  }
 
-	  dist_value.at(iEnergy) = result;
-	  //  cout<<dist_value.at(iEnergy)<<endl;
-	  cout<<"delta "<<delta<<endl;
-	  cout<<"Result is "<<result<<endl;
-	}
-      x *= 2;
-    }
-
-  cout<<"Last x "<<x<<endl;
   TGraph *dist = new TGraph(npoints);
   for(int i = 0;i < npoints; ++i){
-      dist -> SetPoint(i,energy_vec.at(i),dist_value.at(i));
-      cout<<dist_value.at(i)<<endl;
+    dist -> SetPoint(i,dist_vec.at(i),dist_value.at(i));
+    //    cout<<dist_value.at(i)<<endl;
   }
+
   return dist;
 }

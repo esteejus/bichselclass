@@ -24,12 +24,25 @@ int main()
   cout<<"Moment 0 "<<argon.GetMoment(0,3.16)<<endl;;
   cout<<"Moment 1    "<<argon.GetMoment(1,3.16)/1e3<<endl;;
   cout<<"BETHE BLOCH "<<  argon.GetBetheBloch(3.16)<<endl;
-  
-  TGraph *bichsel = argon.DrawBichselSeg(938,2964.08,.5,1e3,0,5e3);
+  //  cout<<"Convolution "<<argon.GetConvolution(40,2)<<endl;
+  //  TGraph *conv_1 = argon.DrawConvolution(2e2,0,100,1,1);
+  //  cout<<"finised 1"<<endl;
+  //  TGraph *conv_2 = argon.DrawConvolution(2e2,0,100,2,30);
+  //  cout<<"finised 2"<<endl;
+  //  TGraph *conv_3 = argon.DrawConvolution(1e2,40,100,3,300);
+  TGraph *bichsel = argon.DrawBichselSeg(938,2964.08,.5,1e3,0,1e6);
   //  TGraph *ruth = argon.DrawRutherford(1e2,10,500,true);
 
   TCanvas *c7 = new TCanvas("c7","c7",1);
   c7 -> SetLogx();
+  /*
+    conv_1 -> GetXaxis()->SetRangeUser(6,100);
+    conv_1 -> Draw("ALO");
+    conv_2 -> SetLineColor(2);
+    conv_2 -> Draw("same LO");
+    conv_3 -> SetLineColor(4);
+    conv_3 -> Draw("same LO");
+  */
   bichsel -> Draw();
   c7 -> SaveAs("bichsel_seg.png");
   
