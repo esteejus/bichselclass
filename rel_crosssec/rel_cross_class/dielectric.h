@@ -12,6 +12,7 @@
 #include "TCanvas.h"
 #include "TGraph.h"
 #include "TAxis.h"
+#include "TF1.h"
 #include <algorithm>
 
 using namespace std;
@@ -122,9 +123,14 @@ class Dielectric {
   TGraph * DrawReal();
   TGraph * DrawCrossSection(bool);
   TGraph * DrawRutherford(int,double,double,bool);
-  TGraph * DrawBichselSeg(double,double,double,double,double,double);
+  TGraph * DrawBichselSeg(double,double,double,double,double,double,int);
   TGraph * DrawConvolution(int,double,double,int,double);
 
+  void ConvSelf(vector<double> &, vector<double> &);
+  void ConvSelf(vector<double> &, vector<double> &, double);
+  void ConvVec(vector<double> &, vector<double> &,vector<double> &, vector<double> &);
+  double calcInt(vector<double> &, vector<double> &);
+  TGraph * GraphFunc(vector<double> &, vector<double> &);
   
 };
 #endif  
