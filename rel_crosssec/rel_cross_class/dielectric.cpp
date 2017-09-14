@@ -667,6 +667,110 @@ TGraph * Dielectric::GraphFunc(vector<double> &a, vector<double> &b){
   return f;
 }
 
+void Dielectric::GetCDF(vector<double> &a, vector<double> &b,vector<double>&cdf_x, vector<double>&cdf_y){
+  cdf_x.clear();
+  cdf_y.clear();  
+
+  int size_x = a.size();
+  int npoints = 2*a.size();
+
+  gsl_interp_accel *acc = gsl_interp_accel_alloc();
+  gsl_spline *dist_table = gsl_spline_alloc(gsl_interp_akima,size_x);
+  gsl_spline_init(dist_table,a.data(),b.data(),size_x);
+      
+  auto integral = [&](double x)->double{
+    double f = 0;
+    if(x >= a.front() && x <= a.back())
+      f = gsl_spline_eval(dist_table,x,acc);
+    else
+      f = 0;
+
+    return f;};
+
+  double x1 = a.front(), x2 = a.back();
+  if(x1 < 1e-3) x1 = .1;//using log cant have nan errors
+  double log_energy_step = (log(x2)-log(x1))/npoints;
+  double prev_result = 0;
+  double result = 0,error = 0;
+  for(int i = 0 ;i < npoints; i++)
+    {
+      double delta = i*log_energy_step + log(x1) ;
+      delta = exp(delta);
+
+      std::function<double(double)> F2(integral);
+      gsl_function_pp F2_2(F2);
+      gsl_function *F_2= static_cast<gsl_function*>(&F2_2); 
+      gsl_integration_workspace * w = gsl_integration_workspace_alloc (10000);
+      gsl_integration_qag (F_2, x1, delta, 0, 1e-3, 10000,6,w, &result, &error);    
+      gsl_integration_workspace_free (w);
+      if(result > prev_result)
+	{
+	  cdf_x.push_back(delta);
+	  cdf_y.push_back(result);
+	  prev_result = result;
+	}
+
+    }
+      gsl_interp_accel_free(acc);
+      gsl_spline_free(dist_table);
+
+      return;
+}
+
+/*
+void Dielectric::GraphCDF(vector<double> &a, vector<double> &b,vector<double>&cdf_x, vector<double>cdf_y){
+  int size_x = a.size();
+  int npoints = 2*a.size();
+
+  gsl_interp_accel *acc = gsl_interp_accel_alloc();
+  gsl_spline *dist_table = gsl_spline_alloc(gsl_interp_akima,size_x);
+  gsl_spline_init(dist_table,a.data(),b.data(),size_x);
+      
+  auto integral = [&](double x)->double{
+    double f = 0;
+    if(x >= a.front() && x <= a.back())
+      f = gsl_spline_eval(dist_table,x,acc);
+    else
+      f = 0;
+
+    return f;};
+
+  TGraph * f = new TGraph(npoints);
+  
+  double x1 = a.front(), x2 = a.back();
+  if(x1 < 1e-3) x1 = .1;//using log cant have nan errors
+  double log_energy_step = (log(x2)-log(x1))/npoints;
+  double prev_result = 0;
+  double result = 0,error = 0;
+  for(int i = 0 ;i < npoints; i++)
+    {
+      double delta = i*log_energy_step + log(x1) ;
+      delta = exp(delta);
+
+      std::function<double(double)> F2(integral);
+      gsl_function_pp F2_2(F2);
+      gsl_function *F_2= static_cast<gsl_function*>(&F2_2); 
+      gsl_integration_workspace * w = gsl_integration_workspace_alloc (10000);
+      gsl_integration_qag (F_2, x1, delta, 0, 1e-2, 10000,6,w, &result, &error);    
+      gsl_integration_workspace_free (w);
+      if(result > prev_result)
+	{
+	  f->SetPoint(i,delta,result);
+	  cout<<result<<" "<<endl;
+	  prev_result = result;
+	}
+      else
+	{
+	  prev_result = result;
+	  continue;
+	}
+    }
+      gsl_interp_accel_free(acc);
+      gsl_spline_free(dist_table);
+
+  return f;
+}
+*/
 double Dielectric::calcInt(vector<double> &a, vector<double> &b){
   double x1 = a.front();
   double x2 = a.back();  
@@ -726,7 +830,7 @@ void Dielectric::ConvSelf(vector<double> &h_delta, vector<double> &h_value,doubl
     gsl_function_pp F2_2(F2);
     gsl_function *F_2= static_cast<gsl_function*>(&F2_2); 
     gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-    gsl_integration_qag (F_2, 0, delta, 0, 1e-1, 1000,1,w, &result, &error);    
+    gsl_integration_qag (F_2, 0, delta, 0, 1e-2, 1000,1,w, &result, &error);    
     double h_d = gsl_spline_eval(dist_table,delta,acc);
     result += 2*c1*h_d;
     h_value.at(iEnergy)=result;
@@ -737,90 +841,14 @@ void Dielectric::ConvSelf(vector<double> &h_delta, vector<double> &h_value,doubl
       
 }
 
-void Dielectric::ConvSelf(vector<double> &h_delta, vector<double> &h_value){
-  int size_x = h_delta.size();
-  gsl_interp_accel *acc = gsl_interp_accel_alloc();
-  gsl_spline *dist_table = gsl_spline_alloc(gsl_interp_akima,size_x);
-  gsl_spline_init(dist_table,h_delta.data(),h_value.data(),size_x);
-
-  for(int iEnergy = 0 ;iEnergy < size_x; iEnergy++){
-    double result = 0, error = 0;
-    double delta = h_delta.at(iEnergy) ;
-
-    //calculate Int{h(delta-x)h(x)}
-    auto integral = [&](double x)->double{
-      double f = 0, f_d = 0;
-      if(x >= h_delta.front() && x <= h_delta.back())
-	f = gsl_spline_eval(dist_table,x,acc);
-      else
-	f = 0;
-      if((delta-x) >= h_delta.front() && (delta-x) <= h_delta.back())
-	f_d = gsl_spline_eval(dist_table,delta-x,acc);
-      else
-	f_d = 0;
-      //      if(f_d*f<0)cout<<"f "<<"f_d "<<f<<" "<<f_d<<" "<<x<<" "<<delta-x<<endl;
-      return f*f_d;};
-
-    std::function<double(double)> F2(integral);
-    gsl_function_pp F2_2(F2);
-    gsl_function *F_2= static_cast<gsl_function*>(&F2_2); 
-    gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-    gsl_integration_qag (F_2, 0, delta,0, 1e-2, 1000,1,w, &result, &error);    
-    h_value.at(iEnergy)=result;
-    gsl_integration_workspace_free (w);
-  }
-    gsl_interp_accel_free(acc);
-    gsl_spline_free(dist_table);
-      
-}
-
-void Dielectric::ConvVec(vector<double> &a, vector<double> &b,vector<double> &c, vector<double> &d){
-  int size_x = a.size();
-      gsl_interp_accel *acc = gsl_interp_accel_alloc();
-      gsl_spline *dist_table = gsl_spline_alloc(gsl_interp_akima,size_x);
-      gsl_spline_init(dist_table,a.data(),b.data(),size_x);
-
-  int size_x_2 = c.size();
-      gsl_interp_accel *acc1 = gsl_interp_accel_alloc();
-      gsl_spline *dist_table_2 = gsl_spline_alloc(gsl_interp_akima,size_x);
-      gsl_spline_init(dist_table_2,c.data(),d.data(),size_x_2);
-
-  for(int iEnergy = 0 ;iEnergy < size_x; iEnergy++){
-    double result = 0, error = 0;
-    double delta = a.at(iEnergy) ;
-
-    auto integral = [&](double x)->double{
-      double f = 0, f_d = 0;
-      if(x >= a.front() && x <= a.back())
-	f = gsl_spline_eval(dist_table,x,acc);
-      else
-	f = 0;
-      if((delta-x) >= c.front() && (delta-x) <= c.back())
-	f_d = gsl_spline_eval(dist_table_2,delta-x,acc1);
-      else
-	f_d = 0;
-      if(f_d*f<0)cout<<"f "<<"f_d "<<f<<" "<<f_d<<" "<<x<<" "<<delta-x<<endl;
-      return f*f_d;};
-
-    std::function<double(double)> F2(integral);
-    gsl_function_pp F2_2(F2);
-    gsl_function *F_2= static_cast<gsl_function*>(&F2_2); 
-    gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-    gsl_integration_qag (F_2, 0, delta, 0, 1e-2, 1000,1,w, &result, &error);    
-    b.at(iEnergy)=result;
-    gsl_integration_workspace_free (w);
-  }
-    gsl_interp_accel_free(acc);
-    gsl_spline_free(dist_table);
-    gsl_interp_accel_free(acc1);
-    gsl_spline_free(dist_table_2);
-
-      
-}
 
 TGraph * Dielectric::DrawBichselSeg(double mass, double mom, double seg, double npoints, double x1, double x2,int conv){
 
-  cout<<"Starting Bichsel seg"<<endl;
+  cout<<"=============================="<<endl;
+  cout<<"Begining to calculate Bichsel distribution"<<endl;
+  cout<<"For segment of length "<<seg<<" [cm]"<<endl;
+  cout<<"=============================="<<endl;
+
   double bgamma = mom/mass;
   //mass in MeV/c^2
   //segment in cm
@@ -829,97 +857,115 @@ TGraph * Dielectric::DrawBichselSeg(double mass, double mom, double seg, double 
   GetRelCrossSection(bgamma);
 
   double m_0 = GetMoment(0,bgamma);
-  cout<<"I think the moment is "<<m_0<<endl;
-  double n_0 = .001;
-  double dx = n_0/m_0;
-  //  double m = seg * m_0;//m in the Poisson dist pow(m,n)
-
-  if(x1 < 1e-4)x1 = .1;//using log steps x1=0 not valid input
+  double n_0 = .001;                              //want to get n_0 to be approx this. 
+  int pow_2 = ceil( log(seg * m_0 / n_0)/log(2) );//rounding up makes sure n_0 is at least above value
+  double dx = seg/pow(2,pow_2);                   //step size in segment
+  n_0 =  dx * m_0;                                //update n_0 actual n_0 used is dx*m_0
+  
+  if(x1 < 1e-4)x1 = .1;                           //using log steps x1=0 not valid input
   double log_energy_step = (log(x2)-log(x1))/npoints;
+
+  //starting initial distribution set up
   std::vector<double> dist_vec, dist_value;
-  std::vector<double> int_vec, int_value;//initial dist
+  std::vector<double> int_vec, int_value;         //initial dist
 
   double c1 = (1-n_0);
-  cout<<"c1 is "<<c1<<endl;
-  //starting initial dist
-  double x_t = dx;
-  //max_power calculates the closest power for how many convolutions are needed to
-  //get the total segment length 
-  //seg = 2^max_power * n_0;
-  int max_power = floor( log(seg/n_0)/log(2) );
-
-  //dist_vec_p stores the energy step information
-  //dist_value_p stores the value of the convolution for the power in power_vec
-  //power_vec store the power of the convolution
-  //adding 1 to the size of max_power to set each power at the correct position in each
-  //vector for eacy access i.e. power=2 convolution is in dist_vec_p[2] dist_value_p[2] power_vec.at(2)
-  vector<int> power_vec(max_power+1);
-  vector<vector<double>>  dist_vec_p(max_power+1), dist_value_p(max_power+1)
-  int cur_power = 1;//current power in ConvSelf i.e. After one ConvSelf power increases one
-  
+  double x_t = dx;                                //current segment length in convolution
   for(int iEnergy = 0; iEnergy < npoints; iEnergy++)
     {
-      //      double result = 0, error = 0;
       double delta = iEnergy*log_energy_step + log(x1) ;
       delta = exp(delta);
       double result = InterpolateRelCrossSect(delta)*dx;
-      result *= atom_cm3 * z;
+      result *= atom_cm3 * z;//equation 7.1 in Bichsel NIM A references sigma which is cross*z*atom_cm3
       dist_vec.push_back(delta);
       dist_value.push_back(result);
     }
   cout<<"End of initialization"<<endl;
 
-  power_vec.at(cur_power) = cur_power;
-  dist_vec_p[cur_power]   = dist_vec;
-  dist_value_p[cur_power] = dist_value;
-
-  while( x_t < seg)
+  while( 2*x_t <= seg )//need some kind of less than delta here
     {
-      if(2*x_t < seg)
-	{
 	  ConvSelf(dist_vec,dist_value,c1);
 	  x_t *= 2;
 	  c1 = pow(c1,2);
-	  cur_power++;
-
-	  power_vec.at(cur_power) = cur_power;
-	  dist_vec_p[cur_power]   = dist_vec;
-	  dist_value_p[cur_power] = dist_value;
-	  //	  cout<<"x is on "<<x_t<<endl;
-	}
-      else
-	{
-  //  double rem = seg - x_t; //remainder distance
-  //max_power calculates the closest power
-  //to make up the remainder rem
-  //rem = 2^max_power * n_0;
-  //  int max_power = floor( log(rem/n_0)/log(2) );
-
-
-	}
+	  cout<<"x is at "<<x_t<<endl;
     }
-  /* 
-  //end of initial distribution
-  double scale =  calcInt(dist_vec,dist_value);
-  for(int iArr = 0 ; iArr < dist_vec.size();iArr++)
-    dist_value.at(iArr) /= scale;
-  cout<<"after scale"<< calcInt(dist_vec,dist_value);
 
-  //  while(x_t < seg)
-  //  while (x_t < 0.0178927)
-      while(x_t < 0.03)
+  //  double scale = calcInt(dist_vec,dist_value);
+  //  cout<<"Integral is "<<scale<<endl;
+  /*
+  for(int i = 0; i < dist_vec.size(); i++)
     {
-      cout<<"X is "<<x_t<<endl;
-      //     if(2*x_t < seg)
-      //	{
-      //      ConvSelf(dist_vec,dist_value,c1);
-      ConvSelf(dist_vec,dist_value);
-	  x_t *= 2;
-	  c1 = pow(c1,2);
-	  //	}
+      dist_vec.at(i) /= 1000;
+      //   dist_value.at(i) /= dist_vec.at(i);
     }
-  cout<<"Integral is after conv "<<calcInt(dist_vec,dist_value)<<endl;
+  double scale = calcInt(dist_vec,dist_value);
+  for(int i = 0; i < dist_vec.size(); i++)
+    {
+      dist_value.at(i) /= scale;
+      //    dist_value.at(i) *= 2.19269;
+    }
   */
   TGraph *dist = GraphFunc(dist_vec,dist_value);
+  //  TGraph *dist = GraphCDF(dist_vec,dist_value);
   return dist;
 }
+
+TH1D * Dielectric::GetMCdist(TGraph *f_dist, double truncation,int num_mc_events)
+{
+
+  cout<<"Starting MC section"<<endl;
+  vector<double> dist_x, dist_y;
+  int npoints = f_dist->GetN();
+  TGraph *cdf = new TGraph(npoints);
+
+  for(int iGraph = 0 ;iGraph < npoints; iGraph++)
+    {
+      double x = 0, y = 0;
+      f_dist->GetPoint(iGraph,x,y);
+      dist_x.push_back(x);
+      dist_y.push_back(y);
+    }
+
+  vector<double> cdf_x, cdf_y;
+  GetCDF(dist_x,dist_y,cdf_x,cdf_y);
+
+
+  //  cout<<"IS IT MONOTONIC? "<<std::is_sorted(cdf_y.begin(),cdf_y.end())<<endl;
+
+
+
+TRandom3 ran = TRandom3(0);//0 seed will be based on clock of comp and give diff seed each session
+ cout<<"cdf bac "<<cdf_y.back()<<" "<<cdf_y.front()<<endl;
+
+
+double dE = 10.; //[eV]
+double emax = cdf_x.back()- 60;//go 6 bins (10eV each) under min
+double emin = cdf_x.front()+ 60;//6 bins over max
+ double r_max = cdf_y.back();//random number max ~=1
+ double r_min = cdf_y.front();//randome number min ~= 0
+
+int nbins = ceil( (emax-emin)/dE );
+emax = nbins*dE + emin;
+
+TH1D * c_dist = new TH1D("c_dist","c_dist",nbins,emin,emax);
+
+int size_cdf = cdf_y.size();
+gsl_interp_accel *acc = gsl_interp_accel_alloc();
+gsl_spline *cdf_table = gsl_spline_alloc(gsl_interp_akima,size_cdf);
+gsl_spline_init(cdf_table,cdf_y.data(),cdf_x.data(),size_cdf);
+
+ for(int iMC = 0; iMC < num_mc_events; iMC++)
+   {
+     double rand = ran.Uniform(r_min,r_max);
+     double energy_loss = 0;
+     //     if(rand >= cdf_y.front() && rand <= cdf_y.back())
+     energy_loss = gsl_spline_eval(cdf_table,rand,acc);
+     c_dist->Fill(energy_loss);
+    }
+ double scale = c_dist -> Integral("width");
+ c_dist -> Scale(1./scale);
+ 
+  return c_dist;
+}
+
+

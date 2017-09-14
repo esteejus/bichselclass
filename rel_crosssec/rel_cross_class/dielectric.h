@@ -11,8 +11,9 @@
 #include <gsl/gsl_integration.h>
 #include "TCanvas.h"
 #include "TGraph.h"
+#include "TRandom3.h"
 #include "TAxis.h"
-#include "TF1.h"
+#include "TH1.h"
 #include <algorithm>
 
 using namespace std;
@@ -126,11 +127,12 @@ class Dielectric {
   TGraph * DrawBichselSeg(double,double,double,double,double,double,int);
   TGraph * DrawConvolution(int,double,double,int,double);
 
-  void ConvSelf(vector<double> &, vector<double> &);
   void ConvSelf(vector<double> &, vector<double> &, double);
-  void ConvVec(vector<double> &, vector<double> &,vector<double> &, vector<double> &);
+  //  void ConvVec(vector<double> &, vector<double> &,vector<double>, vector<double>,double,double);
   double calcInt(vector<double> &, vector<double> &);
   TGraph * GraphFunc(vector<double> &, vector<double> &);
-  
+  void GetCDF(vector<double> &, vector<double> &,vector<double> &, vector<double> &);
+  TH1D * GetMCdist(TGraph *,double,int);
+
 };
 #endif  
