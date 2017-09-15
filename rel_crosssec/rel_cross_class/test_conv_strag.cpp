@@ -159,7 +159,7 @@ int main()
   //  argon.GetRelCrossSection(3.16);
   //  TGraph *cross = argon.DrawCrossSection(true);
   TGraph *bichsel_0 = argon.DrawBichselSeg(938,3470.6,2,1e4,0,1e6,0);
-  TH1D *cdf = argon.GetMCdist(bichsel_0,1.,1e6);
+  TH1D *c_dist = argon.GetMCdist(bichsel_0,50,1,1e6);
   /*
     vector<double> cdf_x, cdf_y, dist_x,dist_y;
     SetDataTable("bichselStragCompare.dat",cdf_x,cdf_y);
@@ -197,11 +197,12 @@ int main()
   //  dist_paper->SetLineColor(2);
   //  dist_paper->Draw("same");
   //  bichsel_0->GetYaxis()->SetRangeUser(0,1);
-  cdf->Draw("");
+  c_dist -> Draw("");
+  c_dist -> GetXaxis() -> SetRangeUser(1e3,1e4);
   bichsel_0 -> SetLineColor(2);
   bichsel_0 -> Draw("same");
 
-  c1 -> SaveAs("distfromCDF.png");
+  c1 -> SaveAs("c_dist.png");
   
   return 0;
 }
