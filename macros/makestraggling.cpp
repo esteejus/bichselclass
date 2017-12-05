@@ -49,9 +49,10 @@ int main(){
   
   Track part{mass,mom,length,segment,factor};
   part.SetInvXSec("P10M0invw_31623.inv");
+  part.SetM0Table("m0.dat");
   TH1D *dedx_hist;
 
- dedx_hist = part.Drawfdist(mc_steps,20);
+ dedx_hist = part.Drawfdist(mc_steps,2);
  cout<<dedx_hist->Integral();
  // dedx_hist->Scale(1./dedx_hist->Integral());
 

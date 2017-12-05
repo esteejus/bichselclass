@@ -36,8 +36,27 @@ double Bichsel::InterTableSpline(double r){
   return table(r);
 }
 
+void Bichsel::SetM0Table (const std::string& filename) {
+  std::ifstream file (filename.c_str());
+  double d_value=0,d_energy=0;
+  std::string index,line;
+
+  if (file.is_open()){
+    while(getline (file,line) ){
+      std::istringstream in(line);
+      in>>d_energy;
+      in>>d_value;
+      fvpx.push_back(d_energy);
+      fvpy.push_back(d_value);
+    }
+  }
+  else std::cout << "Unable to open M0 data file" << std::endl;
+
+  return;
+}
+
 void Bichsel::SetInvXSec (const std::string& filename) {
-  ifstream file (filename.c_str());
+  std::ifstream file (filename.c_str());
   double d_value=0,d_ran=0;
   //  string rnd_num;
   std::string index,line;
@@ -79,6 +98,26 @@ double Bichsel::GetM0(double x){
   //    fvp.set_points(fvpx,fvpy);
 
   return fvp(x);
+}
+
+double Bichsel::InterpolateM0(double bgamma){
+  gsl_interp_accel *acc1 = gsl_interp_accel_alloc();
+  int size = fvpx.size();
+  gsl_spline *m0_table = gsl_spline_alloc(gsl_interp_akima,size);
+  gsl_spline_init(m0_table,fvpx.data(),fvpy.data(),size);
+  double value = 0;
+
+  if(bgamma >= fvpx.front() && bgamma <= fvpx.back())
+    value = gsl_spline_eval(m0_table,bgamma,acc1);
+  else
+    {
+    value = -1;//careful. Need better criteria here. Short fix
+    std::cout<<"WARNING Bgamma is out of the range. Please redo calculation within range"<<std::endl;
+    }
+  gsl_interp_accel_free(acc1);
+  gsl_spline_free(m0_table);
+  
+  return value;
 }
 
 double Bichsel::GetEloss(){
@@ -140,6 +179,9 @@ TH1D* Bichsel::DrawMultColl(int num_coll,double max_eloss){
 
 
 double Bichsel::GetMCstep(){
+  m_path = InterpolateM0(bgamma);
+  //  std::cout<<"Bgamma "<<bgamma<<std::endl;
+  //  std::cout<<"M path "<<m_path<<std::endl;
   double dx=0;//dx step given by mean free path
   dx=-log(ran.Rndm())/m_path;
 

@@ -1,0 +1,31 @@
+#include "dielectric.h"
+
+using namespace std;
+
+int main()
+{
+  Dielectric argon{1.66e-3,38.,18,"argon"};
+  argon.SetPhotoCross("../argon_10_500_Sakamoto_ext.dat");
+
+  //Set real and imaginary dielectric tables for faster computaiton
+  if(argon.SetRealTable("real_argon.dat") == false)
+    {
+      argon.GetRealDielectric();
+      argon.WriteToFile("real");
+    }
+  if(argon.SetImgTable("img_argon.dat") == false)
+    {
+      argon.GetImgDielectric();
+      argon.WriteToFile("img");
+    }  
+
+  argon.GetRelCrossSection(3.16);
+  TGraph *cross = argon.DrawCrossSection(true);
+  TGraph *bichsel = argon.DrawBichselSegWithDelta(938,2964.08,.5,1e3,0,5e3);
+
+  TCanvas *c7 = new TCanvas("c7","c7",1);
+  c7 -> SetLogx();
+  c7 -> SaveAs("bichsel_seg.png");
+
+  return 0;
+}

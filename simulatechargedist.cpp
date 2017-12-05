@@ -29,12 +29,11 @@ vector<vector<double>> InitPadPlane()
 std::tuple<int,int,double,double> GetCurrentPad(double xpos, double ypos)
 
 {
-  int row = floor(xpos/8.);
+   int row = floor(xpos/8.);
   int layer = floor(ypos/12.);
 
-  double x_inpad = (xpos - row * 8) - 4;//in coordiantes of tpc current pad
-  double y_inpad = (ypos - layer * 12) - 6;//in coordinates of tpc current pad
-
+  double x_inpad = (xpos - row * 8.) - 4;//in coordiantes of tpc current pad
+  double y_inpad = (ypos - layer * 12.) - 6;//in coordinates of tpc current pad
 
   //this section propogates which wire in the current pad will the charge terminate on
   //there are 3 wires over each pad organized as such
@@ -56,7 +55,7 @@ std::tuple<int,int,double,double> GetCurrentPad(double xpos, double ypos)
     y_inpad = 4;
   else
     cout<<"Y inpad is not within bounds for some reason"<<endl;
-  
+
   return std::make_tuple(row,layer,x_inpad,y_inpad);
 }
 
@@ -64,8 +63,8 @@ double GetFract(double x1, double x2, double y1, double y2, double x_0, double y
 {
   //x1 x2 integral in row direciton from x1 to x2 in current pad reference frame
   //y1 y2 integral in layer direciton from y1 to y2 in current pad reference frame
-  double sigma_x = .1;
-  double sigma_y = .1;
+  double sigma_x = .01;
+  double sigma_y = .01;
   //  double sigma_x = 5;
   //  double sigma_y = 5;
 
@@ -99,7 +98,7 @@ vector<std::tuple<int,int,double>> GetPadResponse(std::tuple<int,int,double,doub
 	  double x1 = -4 + i*x_step;
 	  double x2 =  4 + i*x_step;
 
-	  if(row + i > 0 && layer + j > 0)
+	  if(row + i >= 0 && layer + j >= 0)
 	    {
 	      unitpad.emplace_back(row + i,layer + j,charge*GetFract(x1,x2,y1,y2,x_0,y_0));
 	      cout<<"x1 x2 y1 y2 "<<x1<<" "<<x2<<endl;
@@ -125,7 +124,7 @@ void FillPadPlane(vector<std::tuple<int,int,double>> hits, vector<vector<double>
 	  cout<<"pad plane charge is "<<      padplane.at(layer).at(row)<<endl;
 	  cout<<"charge is "<<charge<<endl;
 	}
-    padplane.at(layer).at(row) += charge;
+      padplane.at(layer).at(row) += charge;
     }
   
   return;
@@ -202,12 +201,13 @@ TH2D *PlotPadPlane(vector<vector<double>> padplane)
   for(int iLayer = 1; iLayer<= num_layers; iLayer++)
     {
       vector<double> curLayer = padplane.at(iLayer);
+
 	for(int iRow = 1;iRow <= num_rows;iRow++)
-	{
-	  double charge = curLayer.at(iRow);
-	  padplane_hist->SetBinContent(iLayer,iRow,charge);
-	  //	  cout<<charge<<endl;
-	}
+	  {
+	    double charge = curLayer.at(iRow);
+	    if(iLayer == 1)cout<<"Plotting charge "<<iRow<<" charge "<<charge<<endl;
+	    padplane_hist->SetBinContent(iLayer,iRow,charge);
+	  }
     }
 
   return padplane_hist;
@@ -236,7 +236,7 @@ void GenerateTrack(double z,double mass, double mom, double t_length, vector<vec
   b.SetInvXSec("P10M0invw_31623.inv");
   b.SetM0Table("m0.dat");
 
-  double x_0 = 432;//initial x pos approx center of pad plane
+  double x_0 = 436;//initial x pos approx center of pad plane
   double y_0 = 0; //initial y pos really z axis on real TPC 
   double dist = 0; //distance traveled 
   while(dist < t_length)
@@ -244,7 +244,7 @@ void GenerateTrack(double z,double mass, double mom, double t_length, vector<vec
       double dx = b.GetMCstep()*10;//GetMCStep is in [cm]
       double dE = b.GetEloss();
       dist +=  dx;
-      auto hit = GetCurrentPad(432,dist);//find hit from x,y info
+      auto hit = GetCurrentPad(x_0,dist);//find hit from x,y info
       cout<<"Charge of event is "<<dE*pow(z,2)<<" "<<dist<<endl;
       auto hit_response = GetPadResponse(hit,dE*pow(z,2));
       FillPadPlane(hit_response,padplane);

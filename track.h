@@ -28,7 +28,8 @@ public:
   void Getfarray();//f(E) is the probability distribution for an energy loss E; sample from this and store in f_array 
   void Truncate();
   void GetC();//calculate C for a given track
-
+  void GetCArray(int);//get c for mc steps
+  
   double GetMomentum(){return t_momentum;}
   double GetLength(){return t_length;}
   double GetTruncFactor(){return t_factor;}

@@ -11,25 +11,23 @@
 void Track::SetMomentum(double mom){
   t_momentum=mom;
   bgamma=(mom/sqrt(mom*mom + t_mass*t_mass))*(sqrt(mom*mom + t_mass*t_mass)/t_mass);
-  m_path = GetM0(bgamma);
+  m_path = InterpolateM0(bgamma);
   
     return;
 }
 
 void Track::Getfarray(){
-  //  f_array.clear();
-  //  c_array.clear();
+    f_array.clear();
   //probably should check if t_length is integer of x_seg
   double t_dist = 0.;//total distance traveled
   double eloss = 0.;
   double seg_dist = 0.;//current segment distance traveled
   double dx = 0.;//step size
-  
+
   while(t_dist<=t_length){
     dx = GetMCstep();
     seg_dist += dx;
     t_dist += dx;
-    
     if(seg_dist>=x_seg){
       //here we check if the next step dx, above, put us over our desired analyzed segment size
       seg_dist = seg_dist-x_seg;//remainder dx in next segment analyzed
@@ -83,7 +81,8 @@ TH1D* Track::Drawfdist(int mc_events,double max_eloss){
     GetC();
     //units of energy loss are in eV/cm; which add up for multiple collisions in a segment
     //the better unit is keV/cm
-    for(int j=0;j<f_array.size();++j) dist->Fill(f_array.at(j)/1000);
+    int size_a = f_array.size();
+    for(int j=0;j<size_a;++j) dist->Fill(f_array.at(j)/1000);
     f_array.clear();
   }
   dist->Scale(1./dist->Integral("width"));
@@ -94,7 +93,8 @@ TH1D* Track::Drawfdist(int mc_events,double max_eloss){
 TH1D * Track::DrawCdist(double max_eloss){
   TString histname = Form("test");
   TH1D *dist = new TH1D("c_dist",histname,1000,0,max_eloss);
-  for(int i = 0;i<c_array.size();++i) dist->Fill(c_array.at(i));
+  int size_a = c_array.size();
+  for(int i = 0;i<size_a;++i) dist->Fill(c_array.at(i));
 
   return dist;
 }
@@ -120,7 +120,8 @@ std::vector<std::vector<double>> Track::HistArray(double step_size,double low_li
   for(int i=0;i<num_steps;++i){
     double center_x = (low_lim + step_size/2) + (step_size*i);
     int count=0;
-    for(int j=0;j<c_array.size();++j){
+    int size_a = c_array.size();
+    for(int j=0;j<size_a;++j){
       if(c_array.at(j)>=(i*step_size) && ((i+1)*step_size)>=c_array.at(j)) count++;
     }
       hist[0][i] = center_x;
@@ -184,9 +185,24 @@ void Track::Truncate(){
   return;
 }
 
+void Track::GetCArray(int nevents){
+  c_array.clear();
+  for(int i = 0;i < nevents;++i)
+    {
+      if(i%1000==0)std::cout<<"On event "<<i<<std::endl;
+      f_array.clear();
+      Getfarray();
+      SortArray();
+      Truncate();
+      GetC();
+    }
+  return;
+}
+
 void Track::GetC(){
   double sum=0.;
-  for(int i=0;i<f_array.size();++i){
+  int size_a = f_array.size();
+  for(int i=0;i<size_a;++i){
     sum += f_array.at(i)/1000;//scale to [keV/cm] from [eV/cm]
   }
   c_array.push_back(sum/f_array.size());
@@ -196,7 +212,8 @@ void Track::GetC(){
 
 double Track::GetCavg(){
   double sum = 0.;
-  for(int i=0;i<c_array.size();++i){
+  int size_a = c_array.size();
+  for(int i=0;i<size_a;++i){
     sum += c_array.at(i);
   }
   
@@ -206,7 +223,8 @@ double Track::GetCavg(){
 double Track::GetCsigma(){
   double avg = GetCavg(); //<C> 
   double sigma =0.;
-  for(int i=0;i<c_array.size();++i){
+  int size_a = c_array.size();
+  for(int i=0;i<size_a;++i){
     sigma += (c_array.at(i) - avg)*(c_array.at(i) - avg)/c_array.size();
   }
 

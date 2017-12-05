@@ -9,9 +9,9 @@ int main(){
   int mc_steps=1e3;
 
   double amu=931.5;     //MeV/c^2 from Nuclear Wallet cards
-  double length = 1188; // [cm] length of track
+  double length = 100; // [cm] length of track
   double segment = 1.2; // [cm] segment analyzed
-  double factor = 1.; // truncation factor
+  double factor = .7; // truncation factor
 
   //masses from nuclear wallet cards
     double d_mass = amu*2+13.136;

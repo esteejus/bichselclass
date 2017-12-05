@@ -13,8 +13,10 @@
 #include "TGraph.h"
 #include "TRandom3.h"
 #include "TAxis.h"
+#include "TString.h"
 #include "TH1.h"
 #include <algorithm>
+#include <numeric>
 
 using namespace std;
 
@@ -59,11 +61,13 @@ class Dielectric {
   bool set_real  = false;//if real is calculated or set through table this is TRUE
   bool set_rel   = false;//if relatavistic cross section is set this is TRUE 
 
+
  public:
  Dielectric( double d_density, double d_molarmass, double zz, string nn) : density(d_density), molarmass(d_molarmass), z(zz), name(nn){ atom_cm3 = (d_density/d_molarmass) *avogadro;}
+  Dielectric();
   
   string GetName(){return name;}
-
+  void SetName(const std::string nname){name = nname;}
   void SetPhotoCross ( const std::string &);
   bool SetRealTable ( const std::string &);
   bool SetImgTable ( const std::string &);
@@ -124,15 +128,15 @@ class Dielectric {
   TGraph * DrawReal();
   TGraph * DrawCrossSection(bool);
   TGraph * DrawRutherford(int,double,double,bool);
-  TGraph * DrawBichselSeg(double,double,double,double,double,double,int);
+  TGraph * DrawBichselSeg(double,double,double,double,double,double);
   TGraph * DrawConvolution(int,double,double,int,double);
 
   void ConvSelf(vector<double> &, vector<double> &, double);
-  //  void ConvVec(vector<double> &, vector<double> &,vector<double>, vector<double>,double,double);
+  void GetCDF(vector<double> &, vector<double> &,vector<double> &, vector<double> &);
   double calcInt(vector<double> &, vector<double> &);
   TGraph * GraphFunc(vector<double> &, vector<double> &);
-  void GetCDF(vector<double> &, vector<double> &,vector<double> &, vector<double> &);
-  TH1D * GetMCdist(TGraph *,double,int);
+  TGraph * GetCScaling(TH1 *, TH1 *);
+  TH1D * GetMCdist(TGraph *,TString, double,int,double,int);
 
 };
 #endif  

@@ -1,5 +1,7 @@
 #include "dielectric.h"
 
+bool wayToSort(double i, double j) {return i < j;};
+
 void Dielectric::SetPhotoCross (const std::string& filename) {
   ifstream file (filename.c_str());
   double d_value=0,d_energy=0;
@@ -211,7 +213,7 @@ void Dielectric::GetRealDielectric(){
     gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
     energy_p = photoenergy.at(iEnergy)+.1;//due to endpoint issues add small shift like .1
     double result, error;
-    gsl_integration_qag (F, 0, 1e5, 1e-10, 1e-3,1000,6,w, &result, &error); 
+    gsl_integration_qag (F, 0, 1e5, 1e-10, 1e-2,1000,6,w, &result, &error); 
     real_energy.push_back(energy_p);
     real_value.push_back(result + 1);
     gsl_integration_workspace_free (w);
@@ -351,6 +353,7 @@ Dielectric Dielectric::MixGas(Dielectric &d1, Dielectric &d2, double d1_f, doubl
 
   d3.SetPhotoEnergyVec(d3_photoenergy);  
   d3.SetPhotoValueVec(d3_photovalue);
+  /*
   gsl_interp_accel *acc = gsl_interp_accel_alloc();
   int size = d3_photoenergy.size();
   gsl_spline *photo_table = gsl_spline_alloc(gsl_interp_akima,size);
@@ -358,7 +361,8 @@ Dielectric Dielectric::MixGas(Dielectric &d1, Dielectric &d2, double d1_f, doubl
 
   gsl_interp_accel_free(acc);
   gsl_spline_free(photo_table);
-
+  */
+  
   d3.SetTableFlag(true);
   cout<<"Done mixing gas"<<endl;
   return d3;
@@ -505,7 +509,6 @@ TGraph * Dielectric::DrawReal(){
   int real_size = real_energy.size();
   for(int iRe = 0 ; iRe < real_size; ++iRe){
     real -> SetPoint(iRe,real_energy.at(iRe),real_value.at(iRe));
-    cout<<real_energy.at(iRe)<<" "<<real_value.at(iRe)<<endl;
   }
   return real;
   
@@ -830,7 +833,7 @@ void Dielectric::ConvSelf(vector<double> &h_delta, vector<double> &h_value,doubl
     gsl_function_pp F2_2(F2);
     gsl_function *F_2= static_cast<gsl_function*>(&F2_2); 
     gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
-    gsl_integration_qag (F_2, 0, delta, 0, 1e-2, 1000,1,w, &result, &error);    
+    gsl_integration_qag (F_2, 0, delta, 1e-10, 1e-2, 1000,3,w, &result, &error);    
     double h_d = gsl_spline_eval(dist_table,delta,acc);
     result += 2*c1*h_d;
     h_value.at(iEnergy)=result;
@@ -842,7 +845,7 @@ void Dielectric::ConvSelf(vector<double> &h_delta, vector<double> &h_value,doubl
 }
 
 
-TGraph * Dielectric::DrawBichselSeg(double mass, double mom, double seg, double npoints, double x1, double x2,int conv){
+TGraph * Dielectric::DrawBichselSeg(double mass, double mom, double seg, double npoints, double x1, double x2){
 
   cout<<"=============================="<<endl;
   cout<<"Begining to calculate Bichsel distribution"<<endl;
@@ -910,14 +913,12 @@ TGraph * Dielectric::DrawBichselSeg(double mass, double mom, double seg, double 
   return dist;
 }
 
-TH1D * Dielectric::GetMCdist(TGraph *f_dist, double truncation,int num_mc_events)
+TH1D * Dielectric::GetMCdist(TGraph *f_dist,TString name,double seg_length, int num_seg, double t_frac,int num_mc_events)
 {
-
+  //frac is the truncaiton fraction i.e. .7 would mean lowest 70% kept and highest 30% is not
   cout<<"Starting MC section"<<endl;
   vector<double> dist_x, dist_y;
   int npoints = f_dist->GetN();
-  TGraph *cdf = new TGraph(npoints);
-
   for(int iGraph = 0 ;iGraph < npoints; iGraph++)
     {
       double x = 0, y = 0;
@@ -928,44 +929,112 @@ TH1D * Dielectric::GetMCdist(TGraph *f_dist, double truncation,int num_mc_events
 
   vector<double> cdf_x, cdf_y;
   GetCDF(dist_x,dist_y,cdf_x,cdf_y);
-
-
   //  cout<<"IS IT MONOTONIC? "<<std::is_sorted(cdf_y.begin(),cdf_y.end())<<endl;
 
-
-
 TRandom3 ran = TRandom3(0);//0 seed will be based on clock of comp and give diff seed each session
- cout<<"cdf bac "<<cdf_y.back()<<" "<<cdf_y.front()<<endl;
 
-
-double dE = 10.; //[eV]
-double emax = cdf_x.back()- 60;//go 6 bins (10eV each) under min
-double emin = cdf_x.front()+ 60;//6 bins over max
+ double dE = 10.; //[eV]
+ double emax = cdf_x.back()- 60;//go 6 bins (10eV each) under min
+ double emin = cdf_x.front()+ 60;//6 bins over max
  double r_max = cdf_y.back();//random number max ~=1
  double r_min = cdf_y.front();//randome number min ~= 0
 
-int nbins = ceil( (emax-emin)/dE );
-emax = nbins*dE + emin;
+ int nbins = ceil( (emax-emin)/dE );
+ emax = nbins*dE + emin;
 
-TH1D * c_dist = new TH1D("c_dist","c_dist",nbins,emin,emax);
+TH1D * c_dist = new TH1D(name,name,nbins,emin,emax);
 
 int size_cdf = cdf_y.size();
 gsl_interp_accel *acc = gsl_interp_accel_alloc();
 gsl_spline *cdf_table = gsl_spline_alloc(gsl_interp_akima,size_cdf);
 gsl_spline_init(cdf_table,cdf_y.data(),cdf_x.data(),size_cdf);
 
+
  for(int iMC = 0; iMC < num_mc_events; iMC++)
    {
-     double rand = ran.Uniform(r_min,r_max);
-     double energy_loss = 0;
-     //     if(rand >= cdf_y.front() && rand <= cdf_y.back())
-     energy_loss = gsl_spline_eval(cdf_table,rand,acc);
-     c_dist->Fill(energy_loss);
-    }
+     vector<double> track;
+     for(int iSeg = 0 ;iSeg < num_seg; iSeg++)
+       {
+	 double rand = ran.Uniform(r_min,r_max);
+	 double energy_loss = 0;
+	 energy_loss = gsl_spline_eval(cdf_table,rand,acc);
+	 track.push_back(energy_loss/seg_length);
+       }
+     
+     sort(track.begin(),track.end(),wayToSort);   //sort accending
+     int elem = floor( t_frac * track.size() );   //truncate; element to truncate from is elem
+     track.erase(track.begin()+elem, track.end());//erase upper fraction
+     double sum = std::accumulate(track.begin(), track.end(), 0.0);
+     double mean = sum/track.size();
+     c_dist -> Fill(mean);
+   }
+
  double scale = c_dist -> Integral("width");
  c_dist -> Scale(1./scale);
- 
+
+ cout<<"End of MC section"<<endl;
   return c_dist;
+
 }
 
 
+TGraph * Dielectric::GetCScaling(TH1 *h1, TH1 *h2){
+
+  vector<double> h1_x, h1_y, h2_x, h2_y;
+  
+  int binh1 = h1->GetXaxis()->GetNbins();
+  int binh2 = h2->GetXaxis()->GetNbins();  
+
+  cout<<"IN scaling section "<<binh1<<" "<<binh2<<endl;
+  double prev_cdf = -1;
+  for(int i = 2 ;i < binh1; i++)
+    {
+      double h1_x_value = h1 -> GetBinCenter(i);
+      double h1_cdf = h1 -> Integral(1,i,"width");
+      if(h1_cdf > prev_cdf)//this ensures monotomic 
+	{
+	  h1_x.push_back(h1_x_value);
+	  h1_y.push_back(h1_cdf);
+	  prev_cdf = h1_cdf;
+	}
+    }
+  prev_cdf = -1;
+  for(int i = 2 ;i < binh2; i++)
+    {
+      double h2_x_value = h2 -> GetBinCenter(i);
+      double h2_cdf = h2 -> Integral(1,i,"width");
+      if(h2_cdf > prev_cdf)//this ensures monotomic 
+	{
+	  h2_x.push_back(h2_x_value);
+	  h2_y.push_back(h2_cdf);
+	  prev_cdf = h2_cdf;
+	}
+    }
+
+  cout<<"Finished filling vectors"<<endl;
+int size_h2 = h2_y.size();
+gsl_interp_accel *acc_h1 = gsl_interp_accel_alloc();
+gsl_spline *h2_table = gsl_spline_alloc(gsl_interp_akima,size_h2);
+gsl_spline_init(h2_table,h2_y.data(),h2_x.data(),size_h2);
+
+int size_h1 = h1_y.size();
+gsl_interp_accel *acc_h2 = gsl_interp_accel_alloc();
+gsl_spline *h1_table = gsl_spline_alloc(gsl_interp_akima,size_h1);
+gsl_spline_init(h1_table,h1_y.data(),h1_x.data(),size_h1);
+ 
+
+ int npoints = 1e3;
+ TGraph *graph = new TGraph(npoints);
+ double step_size = 1./npoints;
+ for(int i = 0 ;i < npoints; i++)
+   {
+     double x = step_size*i;
+     double energy_h1 = gsl_spline_eval(h1_table,x,acc_h1);
+     double energy_h2 = gsl_spline_eval(h2_table,x,acc_h2);
+     graph -> SetPoint(i,energy_h1,energy_h2);
+   }
+
+ //  TGraph *graph = new TGraph(h1_x.size(),h1_x.data(),h1_y.data());
+
+  return graph;
+}

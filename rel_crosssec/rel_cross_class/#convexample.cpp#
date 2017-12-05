@@ -1,0 +1,54 @@
+TGraph * Dielectric::DrawBichselSeg(double mass, double mom, double seg, double npoints, double x1, double x2){
+  cout<<"Starting Bichsel seg"<<endl;
+  double bgamma = mom/mass;
+  //mass in MeV/c^2
+  //segment in cm
+  relcross_energy.clear();
+  relcross_value.clear();
+  GetRelCrossSection(bgamma);
+
+  double m_0 = GetMoment(0,bgamma);
+  double n_0 = .001;
+  double dx = n_0/m_0;
+  double m = seg * m_0;//m in the Poisson dist pow(m,n)
+
+  //fcn is the f funciton in the Bichsel paper for calculating the dist through
+  //convolution integral
+  double energy_step = (x2-x1)/npoints;
+  
+  std::vector<double> dist_vec, dist_value;
+  double x_t = 0;
+  for(int iEnergy = 0; iEnergy < npoints; iEnergy++)
+    {
+      double result = 0, error = 0;
+      double delta = iEnergy*energy_step + x1 ;
+
+      auto fcn  = [&](double g)->double{
+	double sigma_g = InterpolateRelCrossSect(g)/units_cross;
+	double sigma_dg = InterpolateRelCrossSect(delta - g)/units_cross;
+	return (sigma_g*sigma_dg*pow(dx,2));};
+
+      std::function<double(double)> F_int(fcn);
+      gsl_function_pp F1(F_int);
+      gsl_function *F= static_cast<gsl_function*>(&F1); 
+      gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+      gsl_integration_qag (F, 0, delta, 0, 1e-2, 1000,1,w, &result, &error);    
+      double sigma_dg = InterpolateRelCrossSect(delta)/units_cross;
+      result += 2*(1-m_0*dx)*dx*sigma_dg;
+      gsl_integration_workspace_free (w);
+      dist_vec.push_back(delta);
+      dist_value.push_back(result);
+      //      cout<<result<<endl;
+    }
+ 	gsl_integration_workspace_free (w_2);
+	gsl_interp_accel_free(acc2);
+	gsl_spline_free(dist_table_2);
+
+  TGraph *dist = new TGraph(npoints);
+  for(int i = 0;i < npoints; ++i){
+    dist -> SetPoint(i,dist_vec.at(i),dist_value.at(i));
+    //    cout<<dist_value.at(i)<<endl;
+  }
+
+  return dist;
+}
