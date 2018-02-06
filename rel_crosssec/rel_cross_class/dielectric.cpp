@@ -704,7 +704,7 @@ void Dielectric::GetCDF(vector<double> &a, vector<double> &b,vector<double>&cdf_
       gsl_function_pp F2_2(F2);
       gsl_function *F_2= static_cast<gsl_function*>(&F2_2); 
       gsl_integration_workspace * w = gsl_integration_workspace_alloc (10000);
-      gsl_integration_qag (F_2, x1, delta, 0, 1e-3, 10000,6,w, &result, &error);    
+      gsl_integration_qag (F_2, x1, delta, 0, 1e-4, 10000,6,w, &result, &error);    
       gsl_integration_workspace_free (w);
       if(result > prev_result)
 	{
@@ -714,6 +714,11 @@ void Dielectric::GetCDF(vector<double> &a, vector<double> &b,vector<double>&cdf_
 	}
 
     }
+
+  //Ensure CDF is normalized
+  for(int i = 0 ;i < cdf_x.size(); i++)
+    cdf_y.at(i) /= cdf_y.back();
+  
       gsl_interp_accel_free(acc);
       gsl_spline_free(dist_table);
 
@@ -939,9 +944,10 @@ TRandom3 ran = TRandom3(0);//0 seed will be based on clock of comp and give diff
  double r_max = cdf_y.back();//random number max ~=1
  double r_min = cdf_y.front();//randome number min ~= 0
 
+ cout<<"Inside dielectric.cpp cdf x and y is "<<r_min<<" "<<r_max<<endl;
  int nbins = ceil( (emax-emin)/dE );
  emax = nbins*dE + emin;
-
+ cout<<"Num bins in MC "<<nbins<<endl;
 TH1D * c_dist = new TH1D(name,name,nbins,emin,emax);
 
 int size_cdf = cdf_y.size();
@@ -981,13 +987,21 @@ gsl_spline_init(cdf_table,cdf_y.data(),cdf_x.data(),size_cdf);
 TGraph * Dielectric::GetCScaling(TH1 *h1, TH1 *h2){
 
   vector<double> h1_x, h1_y, h2_x, h2_y;
+  double h1_scale = h1->Integral("width");
+  double h2_scale = h2->Integral("width");
+  h1->Scale(1./h1_scale);
+  h2->Scale(1./h2_scale);
   
   int binh1 = h1->GetXaxis()->GetNbins();
   int binh2 = h2->GetXaxis()->GetNbins();  
 
-  cout<<"IN scaling section "<<binh1<<" "<<binh2<<endl;
+  int h1_low = h1->FindFirstBinAbove(1e-8);
+  int h1_high = h1->FindLastBinAbove(1e-8);
+  int h2_low = h2->FindFirstBinAbove(1e-8);
+  int h2_high = h2->FindLastBinAbove(1e-8);
+      
   double prev_cdf = -1;
-  for(int i = 2 ;i < binh1; i++)
+  for(int i = h1_low-1 ;i < h1_high+1; i++)
     {
       double h1_x_value = h1 -> GetBinCenter(i);
       double h1_cdf = h1 -> Integral(1,i,"width");
@@ -999,7 +1013,7 @@ TGraph * Dielectric::GetCScaling(TH1 *h1, TH1 *h2){
 	}
     }
   prev_cdf = -1;
-  for(int i = 2 ;i < binh2; i++)
+  for(int i = h2_low-1 ;i < h2_high+1; i++)
     {
       double h2_x_value = h2 -> GetBinCenter(i);
       double h2_cdf = h2 -> Integral(1,i,"width");
@@ -1011,7 +1025,6 @@ TGraph * Dielectric::GetCScaling(TH1 *h1, TH1 *h2){
 	}
     }
 
-  cout<<"Finished filling vectors"<<endl;
 int size_h2 = h2_y.size();
 gsl_interp_accel *acc_h1 = gsl_interp_accel_alloc();
 gsl_spline *h2_table = gsl_spline_alloc(gsl_interp_akima,size_h2);

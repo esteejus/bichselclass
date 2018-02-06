@@ -313,7 +313,7 @@ int main()
   TFile *f = new TFile("./cocktailrootfiles/pid_2dcocktail_9_8_desat_108ndf_1641_1778mev_t.root");
   TH1D *data1_hist = (TH1D *)f->Get("c_strag");
   Hist2DataVec(data1_hist,data1);
-  SetTheoryVec("cdist_p10_full_t_1612_108.data",theory1);
+  SetTheoryVec("cdist_p10_t_1700_108_prf.data",theory1);
   
   global_container.clear();
 
@@ -332,7 +332,7 @@ int main()
   TFile *g = new TFile("./cocktailrootfiles/pid_2dcocktail_9_8_desat_108ndf_1632_1768mev_d.root");
   TH1D *data2_hist = (TH1D *)g->Get("c_strag");
   Hist2DataVec(data2_hist,data2);
-  SetTheoryVec("cdist_p10_full_d_1621_108.data",theory2);
+  SetTheoryVec("cdist_p10_d_1700_108_prf.data",theory2);
 
   struct combineData entry2;
   entry2.data   = data2;
@@ -348,7 +348,7 @@ int main()
   TFile *h = new TFile("./cocktailrootfiles/pid_2dcocktail_9_8_desat_108ndf_897_972mev_p.root");
   TH1D *data3_hist = (TH1D *)h->Get("c_strag");
   Hist2DataVec(data3_hist,data3);
-  SetTheoryVec("cdist_p10_full_p_903_108.data",theory3);
+  SetTheoryVec("cdist_p10_p_935_108_prf.data",theory3);
 
   struct combineData entry3;
   entry3.data   = data3;
@@ -364,7 +364,7 @@ int main()
   TFile *i = new TFile("./cocktailrootfiles/pid_2dcocktail_9_8_desat_108ndf_900_930mev_d.root");
   TH1D *data4_hist = (TH1D *)i->Get("c_strag");
   Hist2DataVec(data4_hist,data4);
-  SetTheoryVec("cdist_p10_full_d_898_108.data",theory4);
+  SetTheoryVec("cdist_p10_d_915_108_prf.data",theory4);
 
   struct combineData entry4;
   entry4.data   = data4;
@@ -436,20 +436,20 @@ int main()
   c1->SaveAs("par2d.png");
   
 
-  double plot_b = -8.34;
-  double plot_slope = 20.2;
+  double plot_b = -7.17;
+  double plot_slope = 20.8;
   
   //  double plot_b = 0;
   //  double plot_slope = 17;
 
   TGraphErrors *data_0 = plotData(0);
-  TGraph *expected_0 = plotTheory(0,plot_b-2., plot_slope);
+  TGraph *expected_0 = plotTheory(0,plot_b, plot_slope);
 
   TGraphErrors *data_1 = plotData(1);
   TGraph *expected_1 = plotTheory(1,plot_b,plot_slope);
 
   TGraphErrors *data_2 = plotData(2);
-  TGraph *expected_2 = plotTheory(2,plot_b+.5,plot_slope);
+  TGraph *expected_2 = plotTheory(2,plot_b,plot_slope);
 
   TGraphErrors *data_3 = plotData(3);
   TGraph *expected_3 = plotTheory(3,plot_b,plot_slope);
@@ -488,18 +488,20 @@ int main()
   //  data->GetXaxis()->SetRangeUser(8,10);
   //   c3->SetLogy();
   //  c3->SetLogx();
+
   data_0->GetXaxis()->SetRangeUser(10,100);
   expected_0->SetLineColor(2);
   expected_0->SetLineWidth(2);
-  data1_hist->SetMarkerStyle(20);
-  data1_hist->SetLineWidth(2);
+  data_0->GetXaxis()->SetRangeUser(55,90);
+  data_0->GetYaxis()->SetRangeUser(0,.15);
+  data_0->Draw("APO");
   data1_hist->GetXaxis()->SetRangeUser(55,90);
   data1_hist->GetYaxis()->SetRangeUser(0,.15);
-  data1_hist->SetTitle("");
   data1_hist->Draw();
+
   expected_0->Draw("same LO");
 
-  c3->SaveAs("fittodata_data0_1612_t.png");
+  c3->SaveAs("fittodata_data0_1700_t_tpcmom.png");
 
 
   TCanvas *c2 = new TCanvas("c2","c2",1);
@@ -509,15 +511,15 @@ int main()
   data_1->GetXaxis()->SetRangeUser(10,100);
   expected_1->SetLineColor(2);
   expected_1->SetLineWidth(2);
-  data2_hist->SetMarkerStyle(20);
-  data2_hist->SetLineWidth(2);
+  data_1->GetXaxis()->SetRangeUser(30,48);
+  data_1->GetYaxis()->SetRangeUser(0,.22);
   data2_hist->GetXaxis()->SetRangeUser(30,48);
   data2_hist->GetYaxis()->SetRangeUser(0,.22);
-  data2_hist->SetTitle("");
   data2_hist->Draw();
+  //  data_1->Draw("APO");
   expected_1->Draw("same LO");
 
-  c2->SaveAs("fittodata_data1_1621_d.png");
+  c2->SaveAs("fittodata_data1_1700_d_tpcmom.png");
 
 
   TCanvas *c4 = new TCanvas("c4","c4",1);
@@ -527,14 +529,14 @@ int main()
   data_2->GetXaxis()->SetRangeUser(10,100);
   expected_2->SetLineColor(2);
   expected_2->SetLineWidth(2);
-  data3_hist->SetMarkerStyle(20);
-  data3_hist->SetLineWidth(2);
+  data_2->GetXaxis()->SetRangeUser(25,45);
+  data_2->GetYaxis()->SetRangeUser(0,.24);
+  //  data_2->Draw("APO");
   data3_hist->GetXaxis()->SetRangeUser(25,45);
   data3_hist->GetYaxis()->SetRangeUser(0,.24);
-  data3_hist->SetTitle("");
   data3_hist->Draw();
   expected_2->Draw("same LO");
-  c4->SaveAs("fittodata_data2_p.png");
+  c4->SaveAs("fittodata_data2_p_935_tpcmom.png");
 
   TCanvas *c5 = new TCanvas("c5","c5",1);
   //  data->GetXaxis()->SetRangeUser(8,10);
@@ -543,14 +545,14 @@ int main()
   data_3->GetXaxis()->SetRangeUser(70,200);
   expected_3->SetLineColor(2);
   expected_3->SetLineWidth(2);
-  data4_hist->SetMarkerStyle(20);
-  data4_hist->SetLineWidth(2);
+  data_3->GetXaxis()->SetRangeUser(85,125);
+  data_3->GetYaxis()->SetRangeUser(0,.12);
+  //  data_3->Draw("APEY");
   data4_hist->GetXaxis()->SetRangeUser(85,125);
   data4_hist->GetYaxis()->SetRangeUser(0,.12);
-  data4_hist->SetTitle("");
-  data4_hist->Draw();
+  data4_hist->Draw("");
   expected_3->Draw("same LO");
-  c5->SaveAs("fittodata_data3_d.png");
+  c5->SaveAs("fittodata_data3_d_915_tpcmom.png");
 
 
   return 0;
